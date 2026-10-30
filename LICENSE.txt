@@ -1,0 +1,21 @@
+NYU Network
+All Rights Reserved / 閲覧目的公開
+
+Copyright © NYU Network. All Rights Reserved.
+
+このリポジトリおよび公開ページに含まれるソースコード、文章、UI、デザイン、構成、画像、音声その他のコンテンツに関する権利は、各権利者に帰属します。
+
+本リポジトリは、NYU Networkおよび各ブランドをWeb上で公開・閲覧するため、ソースコードを閲覧可能な状態で公開しています。
+
+ソースコードを閲覧可能な状態で公開していることは、著作権その他の権利を放棄すること、またはオープンソースライセンスを付与することを意味しません。
+
+明示的な許可なく、以下の行為を禁止します。
+
+1. ソースコードまたはコンテンツの全部または一部の複製
+2. 改変、翻案、派生物の作成または公開
+3. 再配布、転載、再公開
+4. 商用利用
+5. 他のWebサービス、アプリ、メディア等への転用
+6. 本作品またはその一部を利用した類似サービスの公開
+
+No license is granted except for viewing the source code and using the publicly hosted NYU Network web pages as provided.
