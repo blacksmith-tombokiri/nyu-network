@@ -8,13 +8,21 @@
 <link rel="stylesheet" href="mobile-fixes.css?v=20261031-3">
 <link rel="stylesheet" href="desktop-v1.css?v=20261101-4">
 <link rel="stylesheet" href="design-v1.css?v=20261101-2" data-zennyu-design>
-<link rel="stylesheet" href="image-fixes.css?v=20261101-3">
+<link rel="stylesheet" href="image-fixes.css?v=20261101-4">
 <style>
 @media(max-width:899px){
   #featured-carousel .featured-card{display:flex!important;flex-direction:column!important;height:auto!important;min-height:0!important;background:#fff!important;border:1px solid #e0e7e1!important;overflow:hidden!important}
   #featured-carousel .featured-card::after{display:none!important;content:none!important}
   #featured-carousel .featured-media{position:relative!important;inset:auto!important;width:100%!important;height:210px!important;min-height:210px!important;flex:0 0 210px!important;overflow:hidden!important}
-  #featured-carousel .featured-media img{display:block!important;position:absolute!important;inset:0!important;width:100%!important;height:100%!important;object-fit:cover!important;object-position:center!important;z-index:1!important}
+  #featured-carousel .featured-media.visual-good:not(:has(img)){background:linear-gradient(145deg,#f2c5bf,#cc7c72)!important}
+  #featured-carousel .featured-media.visual-forward:not(:has(img)){background:linear-gradient(145deg,#b9cbe5,#6f8fc0)!important}
+  #featured-carousel .featured-media.visual-nature:not(:has(img)){background:linear-gradient(145deg,#b9d8ba,#6a9a70)!important}
+  #featured-carousel .featured-media.visual-repair:not(:has(img)){background:linear-gradient(145deg,#e2c4a7,#aa7548)!important}
+  #featured-carousel .featured-media.visual-mind:not(:has(img)){background:linear-gradient(145deg,#d0c7e2,#8775ad)!important}
+  #featured-carousel .featured-media.visual-food:not(:has(img)){background:linear-gradient(145deg,#eddcae,#c49b42)!important}
+  #featured-carousel .featured-media[data-mark]::before{content:attr(data-mark)!important;position:absolute!important;inset:0!important;display:grid!important;place-items:center!important;font-size:92px!important;font-weight:900!important;color:rgba(255,255,255,.22)!important;z-index:1!important}
+  #featured-carousel .featured-media img{display:block!important;position:absolute!important;inset:0!important;width:100%!important;height:100%!important;object-fit:cover!important;object-position:center!important;z-index:2!important}
+  #featured-carousel .featured-media:has(img)::before{display:none!important;content:none!important}
   #featured-carousel .featured-copy{position:relative!important;left:auto!important;right:auto!important;bottom:auto!important;padding:18px 18px 20px!important;background:#fff!important;color:#1f2924!important;z-index:2!important}
   #featured-carousel .featured-copy h2{margin:0 0 12px!important;color:#1f2924!important;font-size:21px!important;line-height:1.48!important}
   #featured-carousel .featured-comment{margin:0!important;padding-top:11px!important;border-top:1px solid #e5ebe6!important;color:#5c6861!important;font-size:12.5px!important;line-height:1.7!important}
