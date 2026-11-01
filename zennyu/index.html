@@ -7,8 +7,26 @@
 <link rel="stylesheet" href="styles.css?v=20261031-3">
 <link rel="stylesheet" href="mobile-fixes.css?v=20261031-3">
 <link rel="stylesheet" href="desktop-v1.css?v=20261101-4">
-<link rel="stylesheet" href="design-v1.css?v=20261101-1" data-zennyu-design>
-<link rel="stylesheet" href="image-fixes.css?v=20261101-2">
+<link rel="stylesheet" href="design-v1.css?v=20261101-2" data-zennyu-design>
+<link rel="stylesheet" href="image-fixes.css?v=20261101-3">
+<style>
+@media(max-width:899px){
+  #featured-carousel .featured-card{display:flex!important;flex-direction:column!important;height:auto!important;min-height:0!important;background:#fff!important;border:1px solid #e0e7e1!important;overflow:hidden!important}
+  #featured-carousel .featured-card::after{display:none!important;content:none!important}
+  #featured-carousel .featured-media{position:relative!important;inset:auto!important;width:100%!important;height:210px!important;min-height:210px!important;flex:0 0 210px!important;overflow:hidden!important}
+  #featured-carousel .featured-media img{display:block!important;position:absolute!important;inset:0!important;width:100%!important;height:100%!important;object-fit:cover!important;object-position:center!important;z-index:1!important}
+  #featured-carousel .featured-copy{position:relative!important;left:auto!important;right:auto!important;bottom:auto!important;padding:18px 18px 20px!important;background:#fff!important;color:#1f2924!important;z-index:2!important}
+  #featured-carousel .featured-copy h2{margin:0 0 12px!important;color:#1f2924!important;font-size:21px!important;line-height:1.48!important}
+  #featured-carousel .featured-comment{margin:0!important;padding-top:11px!important;border-top:1px solid #e5ebe6!important;color:#5c6861!important;font-size:12.5px!important;line-height:1.7!important}
+  #featured-carousel .featured-tag{margin-bottom:10px!important}
+  #featured-carousel .featured-brow{top:14px!important;left:14px!important;background:rgba(28,42,35,.72)!important;color:#fff!important;border-color:rgba(255,255,255,.18)!important;z-index:4!important}
+}
+@media(max-width:420px){
+  #featured-carousel .featured-media{height:190px!important;min-height:190px!important;flex-basis:190px!important}
+  #featured-carousel .featured-copy{padding:17px 16px 19px!important}
+  #featured-carousel .featured-copy h2{font-size:20px!important}
+}
+</style>
 </head>
 <body>
 <div id="site-header-root"></div>
