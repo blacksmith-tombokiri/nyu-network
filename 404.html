@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ページが見つかりません｜NYU Network</title>
+<meta name="robots" content="noindex">
+<style>
+:root{--bg:#f5f7f4;--ink:#20231f;--muted:#6d756f;--line:#dce3dd;--card:#fff;--green:#2b6e50}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI","Yu Gothic",sans-serif}.page{min-height:100vh;display:grid;place-items:center;padding:28px}.card{width:min(100%,700px);background:var(--card);border:1px solid var(--line);border-radius:22px;padding:38px 34px;box-shadow:0 10px 34px rgba(31,47,38,.04)}.brand{color:var(--green);font-weight:900;text-decoration:none}.code{margin:28px 0 8px;font-size:clamp(68px,16vw,112px);line-height:.9;font-weight:900;letter-spacing:-.06em;color:#dce9e2}.card h1{font-size:clamp(25px,5vw,36px);line-height:1.4;margin:18px 0 10px}.card p{color:var(--muted);line-height:1.85;margin:0}.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px}.btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;border-radius:999px;background:var(--green);color:#fff;font-size:13px;font-weight:850;text-decoration:none}.btn.secondary{background:#fff;color:var(--green);border:1px solid #cad8d0}@media(max-width:560px){.card{padding:30px 22px}.actions{display:grid}.btn{width:100%}}
+</style>
+</head>
+<body>
+<main class="page">
+<section class="card">
+<a id="brand" class="brand" href="./">NYU Network</a>
+<div class="code">404</div>
+<h1>ページが見つかりませんでした</h1>
+<p id="message">URLが変更されたか、ページが存在しない可能性があります。</p>
+<div class="actions">
+<a id="home-link" class="btn" href="./">トップへ戻る</a>
+<a id="back-link" class="btn secondary" href="javascript:history.back()">ひとつ前のページへ</a>
+</div>
+</section>
+</main>
+<script>
+(()=>{
+  const isZennyu=location.pathname.includes('/zennyu/');
+  if(!isZennyu)return;
+  document.title='ページが見つかりません｜ぜんにゅー';
+  const base=location.pathname.split('/zennyu/')[0]+'/zennyu/';
+  const brand=document.querySelector('#brand');
+  const home=document.querySelector('#home-link');
+  const message=document.querySelector('#message');
+  brand.textContent='ぜんにゅー';
+  brand.href=base;
+  home.textContent='ぜんにゅーのホームへ';
+  home.href=base;
+  message.textContent='URLが変更されたか、ページが存在しない可能性があります。ホームから読みたい善兆を探してみてください。';
+})();
+</script>
+</body>
+</html>
