@@ -1,0 +1,48 @@
+/* Image rendering safety fixes: real images take priority over placeholders. */
+.story-thumb,
+.featured-media,
+.article-hero,
+.related-thumb{
+  position:relative;
+  overflow:hidden;
+}
+
+.story-thumb img,
+.featured-media img,
+.article-hero img,
+.related-thumb img{
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  object-position:center;
+  position:relative;
+  z-index:2;
+}
+
+.story-thumb:has(img)::before,
+.featured-media:has(img)::before,
+.article-hero:has(img)::before,
+.related-thumb:has(img)::before{
+  display:none!important;
+  content:none!important;
+}
+
+.story-thumb:has(img),
+.featured-media:has(img),
+.article-hero:has(img),
+.related-thumb:has(img){
+  background:#e9eeea;
+}
+
+.story-badge,
+.related-badge{
+  z-index:3;
+}
+
+@media(min-width:900px){
+  .featured-media img{
+    position:absolute!important;
+    inset:0;
+  }
+}
