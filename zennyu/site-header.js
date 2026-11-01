@@ -23,14 +23,14 @@
     <div class="brand-lockup compact"><span class="brand-mark"><i></i><i></i><i></i></span><span class="brand-copy"><small>GOOD SIGNS, EVERY DAY</small><strong data-brand-name>ぜんにゅー</strong></span></div>
     <button id="drawer-close" class="drawer-close" type="button" aria-label="メニューを閉じる">×</button>
   </div>
-  <nav class="drawer-nav">
-    <a href="index.html">ホーム</a>
-    <a href="#drawer-ranking">よく読まれている善兆</a>
+  <nav class="drawer-nav" aria-label="サイトメニュー">
     <a href="about.html">ぜんにゅーについて</a>
+    <a href="popular.html">よく読まれている善兆</a>
+    <a href="reaction-history.html">リアクション履歴を管理</a>
+    <a href="policy.html">運営方針</a>
+    <a href="contact.html">お問い合わせ</a>
+    <a href="privacy.html">プライバシーポリシー</a>
   </nav>
-  <section id="drawer-ranking" class="drawer-section"><h2>よく読まれている善兆</h2><div id="drawer-ranking-list" class="drawer-ranking-list"><p class="muted">集計準備中です。</p></div></section>
-  <section class="drawer-section"><h2>カテゴリから探す</h2><div id="drawer-categories" class="drawer-categories"></div></section>
-  <div class="drawer-footer"><span>設定</span><small>準備中</small></div>
 </aside>`;
   if(!document.querySelector('#home-app')){
     const search=root.querySelector('#search');
