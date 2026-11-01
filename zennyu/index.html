@@ -34,6 +34,17 @@
   #featured-carousel .featured-copy{padding:17px 16px 19px!important}
   #featured-carousel .featured-copy h2{font-size:20px!important}
 }
+@media(min-width:900px){
+  #article-grid .story-thumb.visual-good:not(:has(img)){background:linear-gradient(145deg,#f2c5bf,#cc7c72)!important}
+  #article-grid .story-thumb.visual-forward:not(:has(img)){background:linear-gradient(145deg,#b9cbe5,#6f8fc0)!important}
+  #article-grid .story-thumb.visual-nature:not(:has(img)){background:linear-gradient(145deg,#b9d8ba,#6a9a70)!important}
+  #article-grid .story-thumb.visual-repair:not(:has(img)){background:linear-gradient(145deg,#e2c4a7,#aa7548)!important}
+  #article-grid .story-thumb.visual-mind:not(:has(img)){background:linear-gradient(145deg,#d0c7e2,#8775ad)!important}
+  #article-grid .story-thumb.visual-food:not(:has(img)){background:linear-gradient(145deg,#eddcae,#c49b42)!important}
+  #article-grid .story-thumb[data-mark]::before{content:attr(data-mark)!important;position:absolute!important;inset:0!important;display:grid!important;place-items:center!important;font-size:86px!important;font-weight:900!important;color:rgba(255,255,255,.30)!important;text-shadow:0 1px 0 rgba(0,0,0,.025)!important}
+  #article-grid .story-thumb:has(img)::before{display:none!important;content:none!important}
+  #article-grid .story-thumb img{display:block!important;width:100%!important;height:100%!important;object-fit:cover!important;object-position:center!important}
+}
 </style>
 </head>
 <body>
