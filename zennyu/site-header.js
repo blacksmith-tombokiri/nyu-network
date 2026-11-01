@@ -32,4 +32,12 @@
   <section class="drawer-section"><h2>カテゴリから探す</h2><div id="drawer-categories" class="drawer-categories"></div></section>
   <div class="drawer-footer"><span>設定</span><small>準備中</small></div>
 </aside>`;
+  if(!document.querySelector('#home-app')){
+    const search=root.querySelector('#search');
+    search?.addEventListener('keydown',e=>{
+      if(e.key!=='Enter')return;
+      const q=search.value.trim();
+      if(q)location.href=`index.html?q=${encodeURIComponent(q)}`;
+    });
+  }
 })();
