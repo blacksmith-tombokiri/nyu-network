@@ -1,4 +1,11 @@
 (()=>{
+  if(!document.querySelector('link[data-zennyu-design]')){
+    const design=document.createElement('link');
+    design.rel='stylesheet';
+    design.href='design-v1.css?v=20261101-1';
+    design.dataset.zennyuDesign='1';
+    document.head.appendChild(design);
+  }
   const root=document.querySelector('#site-header-root');
   if(!root)return;
   root.innerHTML=`
