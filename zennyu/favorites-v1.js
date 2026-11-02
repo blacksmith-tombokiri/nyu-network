@@ -74,23 +74,23 @@
     });
   }
 
-  function categoryClass(code){
-    return ['good','forward','nature','repair','mind','food'].includes(code)?code:'forward';
-  }
-
   function articleUrl(publicId){
     return`article.html?id=${encodeURIComponent(publicId)}`;
   }
 
-  function favoriteCard(a){
-    const code=categoryClass(a.primary_category_code);
+  function fmtDate(value){
+    if(!value)return'日付不明';
+    const d=new Date(value);
+    if(Number.isNaN(d.getTime()))return'日付不明';
+    return new Intl.DateTimeFormat('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit',timeZone:'Asia/Tokyo'}).format(d).replaceAll('/','/');
+  }
+
+  function favoriteRow(a){
     const label=a.primary_category_label||'善兆';
-    const media=a.image_url
-      ?`<div class="favorite-thumb"><img src="${esc(a.image_url)}" alt=""><span>${esc(label)}</span></div>`
-      :`<div class="favorite-thumb visual-${code}" data-mark="${esc(label)}"><span>${esc(label)}</span></div>`;
-    return`<article class="favorite-card" data-public-id="${esc(a.public_id)}">
-      <a class="favorite-card-main" href="${articleUrl(a.public_id)}">${media}<div class="favorite-copy"><small>${esc(label)}</small><h2>${esc(a.title)}</h2><p>${esc(a.editorial_comment||a.summary||'')}</p></div></a>
-      <button class="favorite-remove" type="button" data-remove="${esc(a.public_id)}">お気に入りから外す</button>
+    return`<article class="favorite-row" data-public-id="${esc(a.public_id)}">
+      <div class="favorite-meta"><time datetime="${esc(a.published_at||'')}">${esc(fmtDate(a.published_at))}</time><span class="favorite-category">${esc(label)}</span></div>
+      <a class="favorite-title" href="${articleUrl(a.public_id)}">${esc(a.title)}</a>
+      <button class="favorite-remove" type="button" data-remove="${esc(a.public_id)}" aria-label="${esc(a.title)}をお気に入りから外す">♡解除</button>
     </article>`;
   }
 
@@ -120,7 +120,7 @@
         root.innerHTML='<div class="favorite-empty"><strong>保存した記事は現在公開されていません。</strong><p>公開中の善兆から、またお気に入りを選べます。</p><a href="index.html">善兆を探す →</a></div>';
         return;
       }
-      root.innerHTML=visible.map(favoriteCard).join('');
+      root.innerHTML=visible.map(favoriteRow).join('');
       root.querySelectorAll('[data-remove]').forEach(btn=>btn.addEventListener('click',()=>{
         const id=btn.dataset.remove;
         setFavorite(id,false);
