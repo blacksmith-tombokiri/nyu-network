@@ -12,4 +12,63 @@
     <div>
       <p class="eyebrow">ZENNYU ADMIN</p>
       <h1>編集デスク</h1>
-      <p class="sub">公開状態、レビュー候補
+      <p class="sub">公開状態、レビュー候補、いま読みたい善兆をまとめて管理します。</p>
+    </div>
+    <div class="top-actions">
+      <span id="user-label" class="user-label"></span>
+      <button id="logout-btn" class="ghost" type="button" hidden>ログアウト</button>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section id="login-panel" class="panel login-panel">
+      <h2>管理者ログイン</h2>
+      <form id="login-form">
+        <label>メールアドレス<input id="email" type="email" autocomplete="username" required></label>
+        <label>パスワード<input id="password" type="password" autocomplete="current-password" required></label>
+        <button class="primary" type="submit">ログイン</button>
+      </form>
+      <p id="login-message" class="message"></p>
+    </section>
+
+    <section id="setup-panel" class="panel setup-panel" hidden>
+      <h2>管理者登録が必要です</h2>
+      <p>ログインには成功しましたが、このアカウントはまだ管理者登録されていません。</p>
+      <pre id="bootstrap-sql"></pre>
+      <button id="copy-sql-btn" class="ghost" type="button">SQLをコピー</button>
+    </section>
+
+    <section id="review-app" hidden>
+      <section id="featured-status" class="panel featured-status"></section>
+
+      <div class="toolbar panel">
+        <div class="stats">
+          <div><strong id="count-all">0</strong><span>すべて</span></div>
+          <div><strong id="count-published">0</strong><span>公開</span></div>
+          <div><strong id="count-unpublished">0</strong><span>非公開</span></div>
+        </div>
+        <div class="filters" role="group" aria-label="記事フィルター">
+          <button class="filter active" data-filter="all" type="button">すべて</button>
+          <button class="filter" data-filter="published" type="button">公開</button>
+          <button class="filter" data-filter="unpublished" type="button">非公開</button>
+          <button class="filter" data-filter="featured" type="button">いま読みたい善兆</button>
+        </div>
+      </div>
+
+      <div class="searchbar panel">
+        <label>元ニュース日
+          <input id="date-filter" type="date">
+        </label>
+        <button id="clear-date-btn" class="ghost" type="button">すべての日付</button>
+        <span id="date-filter-note" class="small">元ニュースの公開日で絞り込みます。</span>
+      </div>
+
+      <div id="status" class="status"></div>
+      <div id="review-list"></div>
+    </section>
+  </main>
+
+  <script src="../zennyu/config.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>
