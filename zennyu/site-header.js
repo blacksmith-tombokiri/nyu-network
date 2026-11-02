@@ -33,6 +33,7 @@
   <nav class="drawer-nav" aria-label="サイトメニュー">
     <a href="about.html">ぜんにゅーについて</a>
     <a href="popular.html">よく読まれている善兆</a>
+    <a href="favorites.html">お気に入り</a>
     <a href="reaction-history.html">リアクション履歴を管理</a>
     <a href="policy.html">運営方針</a>
     <a href="contact.html">お問い合わせ</a>
