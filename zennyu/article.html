@@ -11,14 +11,18 @@
 <link rel="stylesheet" href="design-v1.css?v=20261101-1" data-zennyu-design>
 <link rel="stylesheet" href="image-fixes.css?v=20261101-1">
 <link rel="stylesheet" href="error-ui.css?v=20261102-1">
+<style>
+.article-favorite-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:18px}.favorite-toggle{display:inline-flex;align-items:center;gap:8px;border:1px solid #cfd9d2;background:#fff;color:#334139;border-radius:999px;padding:9px 14px;font:inherit;font-weight:700;cursor:pointer}.favorite-toggle:hover{background:#f5f8f6}.favorite-toggle.saved{background:#edf5f0;border-color:#9db8a8;color:#275c43}.favorite-heart{font-size:19px;line-height:1}.favorite-list-link{color:#66736b;font-size:13px;font-weight:700;text-decoration:none}.favorite-list-link:hover{text-decoration:underline}
+</style>
 </head>
 <body>
 <div id="site-header-root"></div>
 <main id="article-app"><div class="loading">記事を読み込み中...</div></main>
 <script src="config.js?v=20261031-3"></script>
-<script src="site-header.js?v=20261101-7"></script>
+<script src="site-header.js?v=20261102-1"></script>
 <script src="image-display-v1.js?v=20261102-1"></script>
 <script src="app.js?v=20261101-6"></script>
+<script src="favorites-v1.js?v=20261102-1"></script>
 <script src="error-handling-v1.js?v=20261102-1"></script>
 <script>
 document.addEventListener('DOMContentLoaded',()=>{
