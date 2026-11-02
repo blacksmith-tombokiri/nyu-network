@@ -79,6 +79,42 @@
       const search = document.querySelector('#date-search-btn');
       const clear = document.querySelector('#clear-date-btn');
       const note = document.querySelector('#date-filter-note');
+      const reviewBtn = document.querySelector('[data-filter="review"]');
+      const list = document.querySelector('#review-list');
+      const countReview = document.querySelector('#count-review');
+      let reviewMode = false;
+
+      const scoreOf = row => {
+        const text = row?.querySelector('.score')?.childNodes?.[0]?.textContent?.trim() || '';
+        const n = Number(text);
+        return Number.isFinite(n) ? n : null;
+      };
+
+      const applyReviewFilter = () => {
+        const rows = [...document.querySelectorAll('#review-list .review-row')];
+        let reviewCount = 0;
+        rows.forEach(row => {
+          const score = scoreOf(row);
+          const isReview = score !== null && score >= 70 && score <= 79;
+          if (isReview) reviewCount++;
+          if (reviewMode) row.style.display = isReview ? '' : 'none';
+        });
+
+        if (reviewMode) {
+          document.querySelectorAll('#review-list .day-group').forEach(group => {
+            const visible = [...group.querySelectorAll('.review-row')].some(row => row.style.display !== 'none');
+            group.style.display = visible ? '' : 'none';
+          });
+        }
+
+        if (countReview) {
+          const allRows = [...document.querySelectorAll('#review-list .review-row')];
+          countReview.textContent = allRows.filter(row => {
+            const score = scoreOf(row);
+            return score !== null && score >= 70 && score <= 79;
+          }).length;
+        }
+      };
 
       const refreshNote = () => {
         requestAnimationFrame(() => {
@@ -88,20 +124,50 @@
             note.textContent = '元ニュースの公開日で絞り込みます。';
             return;
           }
-          const count = document.querySelectorAll('#review-list .review-row').length;
+          const count = [...document.querySelectorAll('#review-list .review-row')].filter(row => row.style.display !== 'none').length;
           note.textContent = `${value} ｜ ${count}件`;
         });
       };
 
+      reviewBtn?.addEventListener('click', () => {
+        reviewMode = true;
+        requestAnimationFrame(() => {
+          applyReviewFilter();
+          refreshNote();
+        });
+      });
+
+      document.querySelectorAll('.filter:not([data-filter="review"])').forEach(btn => {
+        btn.addEventListener('click', () => {
+          reviewMode = false;
+          document.querySelectorAll('#review-list .review-row,#review-list .day-group').forEach(el => el.style.display = '');
+          requestAnimationFrame(refreshNote);
+        });
+      });
+
+      const observer = new MutationObserver(() => {
+        requestAnimationFrame(() => {
+          applyReviewFilter();
+          refreshNote();
+        });
+      });
+      if (list) observer.observe(list, { childList:true, subtree:true });
+
       const apply = () => {
         input?.dispatchEvent(new Event('change', { bubbles: true }));
-        refreshNote();
+        requestAnimationFrame(() => {
+          applyReviewFilter();
+          refreshNote();
+        });
       };
 
       search?.addEventListener('click', apply);
       input?.addEventListener('input', apply);
       input?.addEventListener('change', refreshNote);
-      clear?.addEventListener('click', () => setTimeout(refreshNote, 0));
+      clear?.addEventListener('click', () => setTimeout(() => {
+        applyReviewFilter();
+        refreshNote();
+      }, 0));
     })();
   </script>
 </body>
