@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>お気に入り｜ぜんにゅー</title>
+<link rel="stylesheet" href="styles.css?v=20261031-3">
+<link rel="stylesheet" href="mobile-fixes.css?v=20261031-3">
+<link rel="stylesheet" href="desktop-v1.css?v=20261101-4">
+<link rel="stylesheet" href="static-page-v1.css?v=20261101-2">
+<link rel="stylesheet" href="design-v1.css?v=20261101-1" data-zennyu-design>
+<link rel="stylesheet" href="error-ui.css?v=20261102-1">
+<style>
+.favorite-summary{display:flex;align-items:baseline;gap:8px;margin:0 0 22px;color:#5f6b64}.favorite-summary strong{font-size:28px;color:#25312b}.favorite-grid{display:grid;gap:16px}.favorite-card{border:1px solid #dfe6e0;border-radius:18px;background:#fff;overflow:hidden}.favorite-card-main{display:grid;grid-template-columns:180px 1fr;color:inherit;text-decoration:none}.favorite-thumb{position:relative;min-height:140px;background:#e8ede9;overflow:hidden}.favorite-thumb img{width:100%;height:100%;object-fit:cover;display:block}.favorite-thumb span{position:absolute;top:10px;left:10px;background:rgba(34,48,40,.78);color:#fff;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:700}.favorite-thumb[data-mark]::before{content:attr(data-mark);position:absolute;inset:0;display:grid;place-items:center;font-size:72px;font-weight:900;color:rgba(255,255,255,.28)}.favorite-copy{padding:18px}.favorite-copy small{font-weight:700;color:#66756c}.favorite-copy h2{font-size:20px;line-height:1.5;margin:6px 0 10px}.favorite-copy p{margin:0;color:#667169;line-height:1.7}.favorite-remove{margin:0 18px 16px;border:0;background:transparent;color:#68756e;text-decoration:underline;cursor:pointer}.favorite-empty{border:1px solid #dfe6e0;border-radius:18px;background:#fff;padding:28px}.favorite-empty strong{display:block;font-size:20px;margin-bottom:8px}.favorite-empty p{color:#667169;line-height:1.7}.favorite-empty a{color:#2b6e50;font-weight:700;text-decoration:none}@media(max-width:680px){.favorite-card-main{grid-template-columns:1fr}.favorite-thumb{min-height:190px}}
+</style>
+</head>
+<body>
+<div id="site-header-root"></div>
+<main class="static-page">
+  <div class="static-breadcrumbs"><a href="index.html">ぜんにゅー</a> / お気に入り</div>
+  <h1 class="static-title">お気に入り</h1>
+  <p class="static-lead">あとで読み返したい善兆を、このブラウザに保存できます。</p>
+  <p class="favorite-summary"><strong id="favorites-count">0</strong><span>件</span></p>
+  <div id="favorites-app" class="favorite-grid"><p class="muted">お気に入りを読み込み中です。</p></div>
+  <a class="static-back" href="index.html">← ぜんにゅーのホームへ</a>
+</main>
+<script src="config.js?v=20261031-3"></script>
+<script src="site-header.js?v=20261102-1"></script>
+<script src="app.js?v=20261101-6"></script>
+<script src="favorites-v1.js?v=20261102-1"></script>
+<script src="error-handling-v1.js?v=20261102-1"></script>
+</body>
+</html>
