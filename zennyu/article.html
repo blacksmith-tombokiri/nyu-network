@@ -20,5 +20,21 @@
 <script src="image-display-v1.js?v=20261102-1"></script>
 <script src="app.js?v=20261101-6"></script>
 <script src="error-handling-v1.js?v=20261102-1"></script>
+<script>
+document.addEventListener('DOMContentLoaded',()=>{
+  const root=document.querySelector('#article-app');
+  if(!root)return;
+  const updateCopy=()=>{
+    root.querySelectorAll('h2').forEach(el=>{
+      if(el.textContent.trim()==='関連する善兆')el.textContent='あわせて読みたい善兆';
+    });
+    root.querySelectorAll('.muted').forEach(el=>{
+      if(el.textContent.trim()==='関連する善兆はまだありません。')el.textContent='あわせて読みたい善兆はまだありません。';
+    });
+  };
+  updateCopy();
+  new MutationObserver(updateCopy).observe(root,{childList:true,subtree:true});
+});
+</script>
 </body>
 </html>
