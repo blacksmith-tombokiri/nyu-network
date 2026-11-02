@@ -71,5 +71,36 @@
 
   <script src="../zennyu/config.js"></script>
   <script src="admin.js?v=20261102-2"></script>
+  <script>
+    (() => {
+      const input = document.querySelector('#date-filter');
+      const search = document.querySelector('#date-search-btn');
+      const clear = document.querySelector('#clear-date-btn');
+      const note = document.querySelector('#date-filter-note');
+
+      const refreshNote = () => {
+        requestAnimationFrame(() => {
+          const value = input?.value || '';
+          if (!note) return;
+          if (!value) {
+            note.textContent = '元ニュースの公開日で絞り込みます。';
+            return;
+          }
+          const count = document.querySelectorAll('#review-list .review-row').length;
+          note.textContent = `${value} ｜ ${count}件`;
+        });
+      };
+
+      const apply = () => {
+        input?.dispatchEvent(new Event('change', { bubbles: true }));
+        refreshNote();
+      };
+
+      search?.addEventListener('click', apply);
+      input?.addEventListener('input', apply);
+      input?.addEventListener('change', refreshNote);
+      clear?.addEventListener('click', () => setTimeout(refreshNote, 0));
+    })();
+  </script>
 </body>
 </html>
