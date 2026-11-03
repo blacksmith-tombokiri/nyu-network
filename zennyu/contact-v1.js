@@ -34,7 +34,7 @@
       });
       const result=await res.json().catch(()=>({ok:false}));
       if(!res.ok||!result.ok){
-        const msg=result.reason==='invalid_email'?'メールアドレスを確認してください。':result.reason==='missing_fields'?'必須項目を入力してください。':result.reason==='rate_limited'?'短時間に複数回送信されています。10分ほど時間をおいてから再度お試しください。':'送信できませんでした。少し時間をおいて再度お試しください。';
+        const msg=result.reason==='invalid_email'?'メールアドレスを確認してください。':result.reason==='missing_fields'?'メールアドレスとお問い合わせ内容を入力してください。':result.reason==='rate_limited'?'短時間に複数回送信されています。10分ほど時間をおいてから再度お試しください。':'送信できませんでした。少し時間をおいて再度お試しください。';
         throw new Error(msg);
       }
       form.reset();
