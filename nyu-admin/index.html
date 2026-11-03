@@ -83,5 +83,10 @@
 
   <script src="../zennyu/config.js?v=20261031-3"></script>
   <script src="admin.js?v=20261103-1"></script>
+  <script>
+    document.querySelector('#date-search-btn')?.addEventListener('click', () => {
+      document.querySelector('#date-filter')?.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+  </script>
 </body>
 </html>
