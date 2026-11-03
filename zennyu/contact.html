@@ -7,8 +7,11 @@
 <link rel="stylesheet" href="styles.css?v=20261031-3">
 <link rel="stylesheet" href="mobile-fixes.css?v=20261031-3">
 <link rel="stylesheet" href="desktop-v1.css?v=20261101-4">
-<link rel="stylesheet" href="static-page-v1.css?v=20261101-1">
+<link rel="stylesheet" href="static-page-v1.css?v=20261103-1">
 <link rel="stylesheet" href="design-v1.css?v=20261101-1" data-zennyu-design>
+<style>
+.contact-form{display:grid;gap:16px}.contact-form label{display:grid;gap:7px;font-size:14px;font-weight:800}.contact-form input,.contact-form select,.contact-form textarea{width:100%;border:1px solid #cfd9d2;border-radius:10px;background:#fff;padding:11px 12px;font:inherit;color:#28342e}.contact-form textarea{min-height:190px;resize:vertical}.contact-help{font-size:12px;color:#78847c;font-weight:400}.contact-actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.contact-submit{border:1px solid #286b4d;background:#2f7758;color:#fff;border-radius:10px;padding:11px 20px;font:inherit;font-weight:800;cursor:pointer}.contact-submit:disabled{opacity:.55;cursor:wait}.contact-status{min-height:1.5em;margin:0;color:#66736b}.contact-status.ok{color:#286b4d}.contact-status.error{color:#a04343}.contact-consent{display:flex!important;grid-template-columns:auto 1fr!important;align-items:flex-start;gap:9px!important;font-weight:500!important;line-height:1.7}.contact-consent input{width:auto;margin-top:5px}.contact-honeypot{position:absolute!important;left:-9999px!important;width:1px!important;height:1px!important;overflow:hidden!important}.contact-privacy{font-size:13px;color:#66736b}.contact-privacy a{color:#286b4d;font-weight:700}
+</style>
 </head>
 <body>
 <div id="site-header-root"></div>
@@ -36,17 +39,45 @@
 
   <section class="static-section">
     <h2>お問い合わせフォーム</h2>
-    <div class="coming-soon">
-      <strong>現在準備中です。</strong>
-      <p>本番公開までに、ぜんにゅー独自のお問い合わせフォームを設置します。送信された内容は、運営側で確認・管理できる仕組みを整備する予定です。</p>
-    </div>
+    <form id="contact-form" class="contact-form">
+      <label>お問い合わせ種別
+        <select name="inquiry_type" required>
+          <option value="correction">記事内容の誤り・訂正</option>
+          <option value="link">リンク切れ</option>
+          <option value="rights">著作権・権利関係</option>
+          <option value="media">取材・メディア関係</option>
+          <option value="other" selected>その他</option>
+        </select>
+      </label>
+      <label>お名前
+        <input name="name" type="text" autocomplete="name" maxlength="100" required>
+      </label>
+      <label>メールアドレス
+        <input name="email" type="email" autocomplete="email" maxlength="320" required>
+        <span class="contact-help">必要に応じてご連絡するために使用します。</span>
+      </label>
+      <label>件名
+        <input name="subject" type="text" maxlength="200" required>
+      </label>
+      <label>対象の記事URL（任意）
+        <input name="target_url" type="url" inputmode="url" maxlength="1000" placeholder="https://...">
+      </label>
+      <label>お問い合わせ内容
+        <textarea name="message" maxlength="5000" required></textarea>
+      </label>
+      <label class="contact-honeypot" aria-hidden="true">会社名<input name="company" type="text" tabindex="-1" autocomplete="off"></label>
+      <label class="contact-consent"><input type="checkbox" required><span><a href="privacy.html" target="_blank" rel="noopener">プライバシーポリシー</a>を確認し、お問い合わせ内容の送信に同意します。</span></label>
+      <div class="contact-actions"><button class="contact-submit" type="submit">送信する</button><p id="contact-status" class="contact-status" aria-live="polite"></p></div>
+    </form>
+    <p class="contact-privacy">送信された内容は、運営側の共通問い合わせ管理基盤で確認・管理します。</p>
     <p style="margin-top:16px">お問い合わせいただいた内容すべてへの返信や対応をお約束するものではありません。内容を確認したうえで、必要に応じて対応します。</p>
   </section>
 
   <a class="static-back" href="index.html">← ぜんにゅーのホームへ</a>
 </main>
 <script src="config.js?v=20261031-3"></script>
-<script src="site-header.js?v=20261101-7"></script>
-<script src="app.js?v=20261101-5"></script>
+<script src="site-header.js?v=20261102-1"></script>
+<script src="app.js?v=20261101-6"></script>
+<script src="contact-v1.js?v=20261103-1"></script>
 </body>
 </html>
