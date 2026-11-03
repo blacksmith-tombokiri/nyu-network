@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="styles.css?v=20261031-3">
 <link rel="stylesheet" href="mobile-fixes.css?v=20261031-3">
 <link rel="stylesheet" href="desktop-v1.css?v=20261101-4">
-<link rel="stylesheet" href="static-page-v1.css?v=20261101-1">
+<link rel="stylesheet" href="static-page-v1.css?v=20261103-1">
 <link rel="stylesheet" href="design-v1.css?v=20261101-1" data-zennyu-design>
 </head>
 <body>
@@ -15,15 +15,38 @@
 <main class="static-page">
   <div class="static-breadcrumbs"><a href="index.html">ぜんにゅー</a> / リアクション履歴を管理</div>
   <h1 class="static-title">リアクション履歴を管理</h1>
-  <p class="static-lead">自分がどの善兆に、どんなリアクションをしたかを確認・管理するためのページです。</p>
-  <div class="coming-soon">
-    <strong>現在準備中です。</strong>
-    <p>リアクション履歴の確認、エクスポート、インポート機能を本番公開前に追加する予定です。インポートは個人用履歴の復元として扱い、公開されているリアクション件数には加算しません。</p>
-  </div>
+  <p class="static-lead">この端末で行ったリアクションを確認できます。お気に入りと一緒にバックアップして、別の端末やブラウザへ引き継ぐこともできます。</p>
+
+  <section class="static-section data-tools-section">
+    <h2>個人データのバックアップ</h2>
+    <p>お気に入りとリアクション履歴を、ぜんにゅー専用のJSONファイルとして保存・復元できます。ログインは不要です。</p>
+    <div class="data-actions">
+      <button id="export-personal-data" class="static-action-button" type="button">データを書き出す</button>
+      <button id="import-personal-data" class="static-action-button secondary" type="button">データを読み込む</button>
+      <input id="import-personal-file" type="file" accept="application/json,.json" hidden>
+      <button id="clear-personal-data" class="static-action-button danger" type="button">この端末のデータを削除</button>
+    </div>
+    <div id="personal-data-notice" class="data-notice" aria-live="polite"></div>
+    <div class="static-note data-note">
+      <strong>インポート時の扱い</strong>
+      <p>お気に入りと履歴は、現在のデータに追加して復元します。リアクション履歴を読み込んでも、公開されているリアクション件数は増えません。</p>
+    </div>
+  </section>
+
+  <section class="static-section">
+    <div class="history-heading">
+      <h2>この端末のリアクション履歴</h2>
+      <span><strong id="reaction-history-count">0</strong>件</span>
+    </div>
+    <p>ここに表示されるのは、この端末で保存された個人用の履歴です。</p>
+    <div id="reaction-history-app"></div>
+  </section>
+
   <a class="static-back" href="index.html">← ぜんにゅーのホームへ</a>
 </main>
 <script src="config.js?v=20261031-3"></script>
-<script src="site-header.js?v=20261101-7"></script>
-<script src="app.js?v=20261101-5"></script>
+<script src="site-header.js?v=20261102-1"></script>
+<script src="app.js?v=20261101-6"></script>
+<script src="personal-data-v1.js?v=20261103-1"></script>
 </body>
 </html>
