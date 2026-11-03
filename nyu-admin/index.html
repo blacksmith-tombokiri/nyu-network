@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>NYUNET 管理</title>
+  <link rel="stylesheet" href="admin.css?v=20261103-1">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">NYUNET ADMIN</p>
+      <h1>編集デスク</h1>
+      <p class="sub">媒体を切り替えて、記事の公開・確認・注目枠を管理します。</p>
+    </div>
+    <div class="top-actions">
+      <span id="user-label" class="user-label"></span>
+      <button id="logout-btn" class="ghost" type="button" hidden>ログアウト</button>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section id="login-panel" class="panel login-panel">
+      <h2>管理者ログイン</h2>
+      <form id="login-form">
+        <label>メールアドレス<input id="email" type="email" autocomplete="username" required></label>
+        <label>パスワード<input id="password" type="password" autocomplete="current-password" required></label>
+        <button class="primary" type="submit">ログイン</button>
+      </form>
+      <p id="login-message" class="message"></p>
+    </section>
+
+    <section id="setup-panel" class="panel setup-panel" hidden>
+      <h2>管理者登録が必要です</h2>
+      <p>ログインには成功しましたが、このアカウントはまだ管理者登録されていません。</p>
+      <pre id="bootstrap-sql"></pre>
+      <button id="copy-sql-btn" class="ghost" type="button">SQLをコピー</button>
+    </section>
+
+    <section id="review-app" hidden>
+      <section class="panel brand-bar" aria-label="媒体切り替え">
+        <div>
+          <span class="brand-bar-label">MEDIA</span>
+          <strong id="brand-heading">媒体を読み込み中</strong>
+        </div>
+        <label class="brand-select-wrap">管理する媒体
+          <select id="brand-select" aria-label="管理する媒体"></select>
+        </label>
+      </section>
+
+      <section id="featured-status" class="panel featured-status"></section>
+
+      <div class="toolbar panel">
+        <div class="stats">
+          <div><strong id="count-all">0</strong><span>すべて</span></div>
+          <div><strong id="count-published">0</strong><span>公開</span></div>
+          <div><strong id="count-unpublished">0</strong><span>非公開</span></div>
+          <div><strong id="count-review">0</strong><span id="review-stat-label">70-79点</span></div>
+        </div>
+        <div class="filters" role="group" aria-label="記事フィルター">
+          <button class="filter active" data-filter="all" type="button">すべて</button>
+          <button class="filter" data-filter="published" type="button">公開</button>
+          <button class="filter" data-filter="unpublished" type="button">非公開</button>
+          <button class="filter" data-filter="review" type="button" id="review-filter-label">70-79点</button>
+          <button class="filter" data-filter="featured" type="button" id="featured-filter-label">注目記事</button>
+        </div>
+      </div>
+
+      <div class="searchbar panel">
+        <label>元ニュース日
+          <input id="date-filter" type="date">
+        </label>
+        <button id="clear-date-btn" class="ghost" type="button">すべての日付</button>
+        <span id="date-filter-note" class="small">元ニュースの公開日で絞り込みます。</span>
+      </div>
+
+      <div id="status" class="status"></div>
+      <div id="review-list"></div>
+    </section>
+  </main>
+
+  <script src="../zennyu/config.js?v=20261031-3"></script>
+  <script src="admin.js?v=20261103-1"></script>
+</body>
+</html>
