@@ -202,7 +202,7 @@
 
     return `<article class="review-row ${featured ? 'is-featured' : ''}" data-key="${esc(item.item_key)}" data-article-id="${esc(item.article_id || '')}" data-evaluation-id="${esc(item.evaluation_id || '')}">
       <div class="score ${item.score_total == null ? 'na' : ''}">${item.score_total == null ? '－' : esc(item.score_total)}<small>${esc(scoreHint(item))}</small></div>
-      <div class="summary-title">${esc(title)}<div class="title-badges">${featured ? '<span class="mini-badge featured">いま読みたい善兆</span>' : ''}${item.review_only ? '<span class="mini-badge">レビュー候補</span>' : ''}</div></div>
+      <div class="summary-title">${esc(title)}<div class="title-badges">${featured ? '<span class="mini-badge featured">いま読みたい善兆</span>' : ''}</div></div>
       <div class="source-title"><b>${esc(item.source_name || '')}</b><br>${item.source_url ? `<a href="${esc(item.source_url)}" target="_blank" rel="noopener noreferrer">${esc(item.source_title || '元ニュース')}</a>` : esc(item.source_title || '元ニュース情報なし')}</div>
       <div><span class="cat">${esc(item.category_label || '－')}</span></div>
       <div class="actions"><span class="state-label ${published ? 'published' : 'unpublished'}">${published ? '公開中' : '非公開'}</span>${articleAction}${pinAction}</div>
