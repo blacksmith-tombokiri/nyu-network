@@ -44,7 +44,7 @@ Deno.serve(async(req:Request)=>{
   try{body=await req.json();}catch{return json({ok:false,error:"invalid_json"},400);}
   if(!body||typeof body!=="object"||Array.isArray(body))return json({ok:false,error:"invalid_body"},400);
   if(body.publish===true||body.live===true||body.provider==="openai")return json({ok:false,error:"live_actions_disabled"},409);
-  if(body.mode!=="simulate"&&body.mode!=="approved")return json({ok:false,error:"invalid_mode"},400);
+  if(body.mode!=="simulate"&&body.mode!=="approved"&&body.mode!=="integration_fixture")return json({ok:false,error:"invalid_mode"},400);
   scope=body.mode==="simulate"?"sandbox":"mock";
   const key=body.idempotency_key;
   if(typeof key!=="string"||!/^[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$/.test(key))return json({ok:false,error:"invalid_idempotency_key"},400);
@@ -58,7 +58,7 @@ Deno.serve(async(req:Request)=>{
   if(!reserve.ok)return json({ok:false,version:VERSION,mode:body.mode,blocked:true,reason:reserve.reason,run_id:reserve.run_id??null,api_calls:0,publications_created:0},409);
   runId=reserve.run_id;
   if(body.simulate_failure===true)throw new Error("injected_test_failure");
-  const input=body.mode==="simulate" ? {mode:"fixtures"} : {
+  const input=body.mode==="simulate" ? {mode:"fixtures"} : body.mode==="integration_fixture" ? {mode:"approval_gate_fixtures"} : {
     mode:"approved_factpacks",limit:requestedItems,
     ...(body.domain?{domain:body.domain}:{}),
     ...(body.source_item_id?{source_item_id:body.source_item_id}:{})
