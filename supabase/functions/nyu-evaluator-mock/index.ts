@@ -58,7 +58,7 @@ function mockEvaluate(source:Source, fixtureScore?:number):MockScore {
 }
 function output(source:Source, fixtureScore?:number, fixture=false) {
   const score=mockEvaluate(source,fixtureScore);
-  const evidenceReady=fixture?true:source.fact_status==='complete' && Boolean(normalize(source.fact_summary));
+  const evidenceReady=fixture===true; // Only approvedOutput or explicitly synthetic fixtures can preview publication eligibility.
   return {
     source_item_id:source.id,
     source:{name:source.source_name,domain:source.domain,title:source.title,url:source.source_url,published_at:source.published_at},
@@ -76,6 +76,40 @@ function fixtures():Source[] {
     {id:'fixture-fail-40',title:'【架空テスト】会議の開催を告知',source_url:'',source_name:'架空テスト情報源',domain:'example.invalid',summary:'会議開催の予定を発表したという架空テストデータです。',published_at:null,prefilter:'manual_review',fact_summary:'会議開催のみの告知という架空の事実情報。',fact_status:'complete',fact_pack_id:'fixture',category_hint:'forward'}
   ];
 }
+  const required=(s:ApprovedRow):string[]=>{
+    const reasons:string[]=[];
+    if(s.fact_status!=='complete')reasons.push('factpack_not_complete');
+    if(s.review_type!=='human_verified_source'||s.ready_for_scoring!==true)reasons.push('not_human_approved');
+    if(!s.reviewer_active||!s.reviewed_by||!s.reviewed_at||!normalize(s.review_note))reasons.push('reviewer_or_audit_missing');
+    if(s.reviewed_source_url!==s.source_url)reasons.push('source_url_changed');
+    if(!s.source_hash||! /^[0-9a-f]{64}$/.test(s.source_hash))reasons.push('evidence_hash_missing');
+    if(!normalize(s.evidence_excerpt,800)||normalize(s.evidence_excerpt,800).length<40)reasons.push('evidence_excerpt_missing');
+    if(s.evidence_kind==='missing'||!s.evidence_kind)reasons.push('evidence_kind_missing');
+    if(!normalize(s.fact_summary)||normalize(s.fact_summary).length<40||!normalize(s.fact_change)||normalize(s.fact_change).length<20)reasons.push('fact_fields_incomplete');
+    if(!Array.isArray(s.caveats)||s.caveats.length===0)reasons.push('caveats_missing');
+    if(!['announced','planned','pilot','started','ongoing','completed','result_reported'].includes(s.implementation_stage))reasons.push('stage_invalid');
+    if(!s.source_eligible||s.prefilter!=='ai_candidate')reasons.push('source_or_prefilter_not_eligible');
+    if(s.has_evaluation||s.has_article)reasons.push('already_processed');
+    return reasons;
+  };
+  function approvedOutput(s:ApprovedRow){
+    const reasons=required(s);
+    if(reasons.length) return {source_item_id:s.id,accepted:false,blocked_reasons:reasons,actually_published:false};
+    const src:Source={id:s.id,title:s.title,source_url:s.source_url,source_name:s.source_name,domain:s.domain,summary:s.summary,published_at:s.published_at,prefilter:s.prefilter,fact_summary:s.fact_summary,fact_status:s.fact_status,fact_pack_id:s.fact_pack_id,category_hint:null};
+    const o=output(src,undefined,true);
+    return {...o,accepted:true,blocked_reasons:[],approval:{reviewed_at:s.reviewed_at,review_type:s.review_type,source_hash_present:true,verified_for_mock_input:true},
+      warning:'SIMULATION ONLY. Approved input used for a synthetic score, not actual AI verification. No publication.'};
+  }
+  type ApprovedRow=Source&{review_type:string|null;ready_for_scoring:boolean;reviewed_by:string|null;reviewed_at:string|null;review_note:string|null;reviewed_source_url:string|null;reviewer_active:boolean;source_hash:string|null;evidence_excerpt:string|null;evidence_kind:string|null;fact_change:string|null;caveats:unknown;implementation_stage:string;source_eligible:boolean;has_evaluation:boolean;has_article:boolean};
+  const approvedFixtures=()=>{
+    const base:ApprovedRow={id:'fixture-approved',title:'架空の改善施策についての確認済み成果',source_url:'https://example.invalid/test',source_name:'テスト機関',domain:'example.invalid',summary:null,published_at:null,prefilter:'ai_candidate',fact_summary:'架空の施策で改善が報告されたという設定のテスト文章。実際の情報ではなく、模擬評価の接続経路を検証するための文章です。',fact_status:'complete',fact_pack_id:'fixture',category_hint:null,review_type:'human_verified_source',ready_for_scoring:true,reviewed_by:'fixture-human',reviewed_at:'2026-11-10T00:00:00Z',review_note:'架空の出典確認済み',reviewed_source_url:'https://example.invalid/test',reviewer_active:true,source_hash:'a'.repeat(64),evidence_excerpt:'架空の改善を確認したという想定の文章です。これは接続機能の検証専用フィクスチャであり、実際の報道や成果ではありません。',evidence_kind:'feed_summary',fact_change:'架空の施策により改善が確認されたとするテスト設定です。',caveats:['これは架空の内容で実在の成果ではありません。'],implementation_stage:'result_reported',source_eligible:true,has_evaluation:false,has_article:false};
+    const denied={...base,id:'fixture-unapproved',review_type:'unverified_machine_draft',ready_for_scoring:false};
+    const old={...base,id:'fixture-legacy',review_type:'manual_official_source_body',ready_for_scoring:false};
+    const changed={...base,id:'fixture-changed-url',reviewed_source_url:'https://example.invalid/other'};
+    const processed={...base,id:'fixture-processed',has_evaluation:true};
+    const result=[base,denied,old,changed,processed].map(approvedOutput);
+    return {ok:true,version:VERSION,mode:'approval_gate_fixtures',provider:'mock',api_calls:0,database_writes:0,publications_created:0,results:result,checks:{approved_pass:result[0].accepted===true,unapproved_blocked:result[1].accepted===false,legacy_blocked:result[2].accepted===false,source_changed_blocked:result[3].accepted===false,duplicate_blocked:result[4].accepted===false}};
+  };
 async function authorized(req:Request) {
   const token=req.headers.get('x-nyu-token')??'';
   if(!token) return false;
@@ -95,9 +129,45 @@ Deno.serve(async (req:Request)=>{
     const body=await req.json().catch(()=>({}));
     if(!body || typeof body!=='object'||Array.isArray(body)) return Response.json({ok:false,error:'invalid body'},{status:400});
     const mode=body.mode??'fixtures';
-    if(mode!=='fixtures'&&mode!=='candidates') return Response.json({ok:false,error:'unsupported mode'},{status:400});
+    if(mode!=='fixtures'&&mode!=='candidates'&&mode!=='approved_factpacks'&&mode!=='approval_gate_fixtures') return Response.json({ok:false,error:'unsupported mode'},{status:400});
     if(body.publish===true||body.write===true||body.live===true||body.provider==='openai')
       return Response.json({ok:false,error:'mock_only_live_actions_disabled'},{status:409});
+    if(mode==='approval_gate_fixtures') return Response.json(approvedFixtures());
+    if(mode==='approved_factpacks'){
+      if(body.domain!=null&&(typeof body.domain!=='string'||body.domain.length>200))return Response.json({ok:false,error:'invalid_domain'},{status:400});
+      const domain=typeof body.domain==='string'&&body.domain.trim()?body.domain.trim().toLowerCase():null;
+      const limit=Math.max(1,Math.min(10,Math.trunc(Number(body.limit)||5)));
+      const id=typeof body.source_item_id==='string' && /^[0-9a-f]{8}-[0-9a-f-]{27,}$/.test(body.source_item_id)?body.source_item_id:null;
+      if(body.source_item_id&&!id)return Response.json({ok:false,error:'invalid_source_item_id'},{status:400});
+      const approved=await sql<ApprovedRow[]>`
+        select i.id::text as id,i.original_title as title,i.source_url,s.name as source_name,s.domain,
+          i.source_summary as summary,i.source_published_at::text as published_at,
+          i.metadata->'zencho_prefilter'->>'decision' as prefilter,
+          f.event_summary as fact_summary,f.extraction_status as fact_status,f.id::text as fact_pack_id,
+          null::text as category_hint, f.extra_facts->>'review_type' as review_type,
+          (f.extra_facts->>'ready_for_scoring')='true' as ready_for_scoring,
+          f.extra_facts->>'reviewed_by' as reviewed_by, f.extra_facts->>'reviewed_at' as reviewed_at,
+          f.extra_facts->>'review_note' as review_note, f.extra_facts->>'reviewed_source_url' as reviewed_source_url,
+          exists(select 1 from public.nyu_admin_users au where au.user_id::text=f.extra_facts->>'reviewed_by' and au.is_active=true and au.role in ('owner','admin','editor')) as reviewer_active,
+          f.source_content_hash as source_hash, f.extra_facts->>'evidence_excerpt' as evidence_excerpt,
+          f.extra_facts->>'evidence_kind' as evidence_kind, f.change_summary as fact_change,
+          f.caveats,f.implementation_stage,
+          (s.is_active=true and s.rights_tier='green' and s.production_enabled=true and s.reuse_status='approved' and s.commercial_use_allowed=true and coalesce(s.takedown_status,'none')='none') as source_eligible,
+          exists(select 1 from public.nyu_evaluations e where e.source_item_id=i.id) as has_evaluation,
+          exists(select 1 from public.nyu_article_sources a where a.source_item_id=i.id) as has_article
+        from public.nyu_source_fact_packs f join public.nyu_source_items i on i.id=f.source_item_id
+        join public.nyu_sources s on s.id=i.source_id
+        where f.extraction_status='complete'
+          and f.extra_facts->>'review_type'='human_verified_source'
+          and f.extra_facts->>'ready_for_scoring'='true'
+          and (${domain}::text is null or s.domain=${domain})
+          and (${id}::uuid is null or i.id=${id}::uuid)
+        order by f.updated_at desc limit ${limit}
+      `;
+      const results=approved.map(approvedOutput);
+      return Response.json({ok:true,version:VERSION,mode,provider:'mock',api_calls:0,database_writes:0,publications_created:0,processed:results.length,accepted:results.filter(x=>x.accepted).length,blocked:results.filter(x=>!x.accepted).length,results,
+        note:'Human-approved, traceable factpacks only. Synthetic scoring preview, no article publication, no evaluation persistence.'});
+    }
     if(mode==='fixtures') {
       const result=fixtures().map((x,i)=>output(x,[85,75,40][i],true));
       return Response.json({ok:true,version:VERSION,mode,provider:'mock',api_calls:0,database_writes:0,
