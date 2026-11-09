@@ -1,10 +1,10 @@
 <!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>AI安全管理 | NYUNET</title><link rel="stylesheet" href="admin.css?v=20261103-1">
 <style>.safety-header{display:flex;justify-content:space-between;align-items:center;gap:16px;margin:15px 0;padding:16px 18px}.safety-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(265px,1fr));gap:14px;margin:15px 0}.safety-card{background:#fff;border:1px solid #d9dfd7;border-radius:14px;padding:18px}.safety-card header{display:flex;justify-content:space-between;gap:8px}.safety-card dl{display:grid;grid-template-columns:1fr auto;gap:9px;margin:18px 0;font-size:13px}.safety-card dd{font-weight:800;margin:0}.safety-card dt{color:#6f7a72}.safety-card p{font-size:12px;color:#58695c}.running,.stop{font-size:12px;border-radius:99px;padding:5px 9px;font-weight:800}.running{background:#e7efe9;color:#315f45}.stop{background:#fff0e8;color:#9e442f}.safety-table{width:100%;border-collapse:collapse;font-size:13px}.safety-table th,.safety-table td{padding:10px;border-bottom:1px solid #e7eae7;text-align:left;white-space:nowrap}.scroll{overflow:auto;padding:16px}.safety-note{padding:18px;color:#556459;font-size:13px;line-height:1.8}.back{display:inline-block;text-decoration:none}</style></head>
 <body><header class="topbar"><div><p class="eyebrow">NYUNET / SAFETY</p><h1>AI実行の安全管理</h1><p class="sub">予算・件数・連続失敗・監査ログを確認します。</p></div><div class="top-actions"><a class="ghost back" href="./?brand=zen">編集デスクへ戻る</a></div></header>
-<main class="shell"><section class="panel safety-note"><strong id="api-indicator">OpenAI API 接続 OFF</strong><p>掲載処理は実行していません。金額は安全テスト用の仮の単価であり、OpenAIの請求額ではありません。停止解除や予算変更はこの画面からはできません。</p></section>
+<main class="shell"><section class="panel safety-note"><strong id="api-indicator">OpenAI API 接続 OFF</strong><p>掲載処理は実行していません。金額は米ドル（USD）表示です。安全テスト用の仮の単価で計算しており、OpenAIの実際の請求額ではありません。停止解除や予算変更はこの画面からはできません。</p></section>
 <section class="panel safety-header"><div><strong>設定・実行状況</strong><p id="last-update" class="small"></p></div><button class="ghost" id="reload" type="button">最新を取得</button></section><p id="message" role="status" class="status"></p>
 <div id="policy-list" class="safety-grid"></div>
-<section class="panel scroll"><h2>実行ログ <span id="run-count">0</span>件</h2><table class="safety-table"><thead><tr><th>日時（日本時間）</th><th>モード</th><th>状態</th><th>処理要求</th><th>仮の予約額</th><th>停止・拒否理由</th></tr></thead><tbody id="run-list"></tbody></table></section></main>
+<section class="panel scroll"><h2>実行ログ <span id="run-count">0</span>件</h2><table class="safety-table"><thead><tr><th>日時（日本時間）</th><th>モード</th><th>状態</th><th>処理要求</th><th>仮の予約額（USD）</th><th>停止・拒否理由</th></tr></thead><tbody id="run-list"></tbody></table></section></main>
 <script src="../zennyu/config.js?v=20261031-3"></script><script>(function safetyDashboard(){
 const cfg=window.ZENNEWS_CONFIG,select=s=>document.querySelector(s),esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const auth=cfg?.supabaseUrl+"/auth/v1",rest=cfg?.supabaseUrl+"/rest/v1";
@@ -23,6 +23,7 @@ async function request(){
  if(!r.ok)throw Error(d.message||"管理者権限が必要です。");return d;
 }
 function fmt(d){return d?new Date(d).toLocaleString("ja-JP",{timeZone:"Asia/Tokyo"}):"-";}
+function usd(cents){const n=Number(cents);return Number.isFinite(n)?new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",minimumFractionDigits:2,maximumFractionDigits:2}).format(n/100):"-";}
 const scopeName=s=>s==="mock"?"承認済み候補（模擬）":"安全機能のテスト";
 function render(data){
  select("#api-indicator").textContent=data.live_api_allowed?"設定を確認":"OpenAI API 接続 OFF";
@@ -31,14 +32,14 @@ function render(data){
 <dl>
 <dt>1回上限</dt><dd>${esc(p.max_items_per_run)}件</dd>
 <dt>1日上限</dt><dd>${esc(p.max_items_per_day)}件</dd>
-<dt>1日想定予算</dt><dd>${esc(p.max_estimated_cents_per_day)}セント</dd>
-<dt>月間想定予算</dt><dd>${esc(p.max_estimated_cents_per_month)}セント</dd>
-<dt>模擬単価</dt><dd>${esc(p.estimated_cents_per_item)}セント/件</dd>
+<dt>1日想定予算（USD）</dt><dd>${esc(usd(p.max_estimated_cents_per_day))}</dd>
+<dt>月間想定予算（USD）</dt><dd>${esc(usd(p.max_estimated_cents_per_month))}</dd>
+<dt>模擬単価（USD）</dt><dd>${esc(usd(p.estimated_cents_per_item))}/件</dd>
 <dt>連続失敗</dt><dd>${esc(p.consecutive_failures)} / ${esc(p.max_consecutive_failures)}回</dd>
 </dl><p>${p.circuit_open?"停止原因："+esc(p.circuit_reason||"不明"):"API課金なしの模擬評価のみ許可"}</p>
 </article>`).join("");
  select("#run-count").textContent=data.recent_runs.length;
- select("#run-list").innerHTML=data.recent_runs.length?data.recent_runs.map(r=>`<tr><td>${esc(fmt(r.started_at))}</td><td>${esc(scopeName(r.scope))}</td><td>${esc(r.status)}</td><td>${esc(r.requested_items)}件</td><td>${esc(r.estimate_cents)}セント</td><td>${esc(r.error_code||"")}</td></tr>`).join(""):'<tr><td colspan="6">実行履歴はまだありません。</td></tr>';
+ select("#run-list").innerHTML=data.recent_runs.length?data.recent_runs.map(r=>`<tr><td>${esc(fmt(r.started_at))}</td><td>${esc(scopeName(r.scope))}</td><td>${esc(r.status)}</td><td>${esc(r.requested_items)}件</td><td>${esc(usd(r.estimate_cents))}</td><td>${esc(r.error_code||"")}</td></tr>`).join(""):'<tr><td colspan="6">実行履歴はまだありません。</td></tr>';
  select("#last-update").textContent="最終取得 "+fmt(new Date().toISOString());
 }
 async function load(){
