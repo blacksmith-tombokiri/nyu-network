@@ -1,0 +1,105 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>ファクトパック確認 | NYUNET管理</title><link rel="stylesheet" href="admin.css?v=20261110"><style>.back{display:inline-block;text-decoration:none}.notice{margin:15px 0;padding:18px}.notice p{line-height:1.7;color:#546057}.fp{padding:20px;margin:16px 0}.fp h2{font-size:18px;line-height:1.5;margin:0 0 8px}.evidence{padding:14px;background:#f6f8f5;border-radius:9px;line-height:1.7;overflow-wrap:anywhere}.evidence p{white-space:pre-wrap}.fp-form{display:grid;gap:13px;margin-top:16px}.fp-form>label{display:grid;gap:6px;font-weight:700;font-size:13px}.fp-form textarea,.fp-form select,.fp-form input[readonly]{font:inherit;padding:10px;border:1px solid #cbd4cc;border-radius:8px;width:100%}.fp-form fieldset{display:grid;gap:10px;border:1px solid #cbd4cc;border-radius:8px}.fp-form fieldset label{font-size:13px}.fp-form fieldset input{margin-right:8px}.buttons{display:flex;gap:10px;flex-wrap:wrap}.buttons button:disabled{opacity:.5}.result{font-size:13px;color:#315f45;margin:0;min-height:18px}</style></head>
+<body><header class="topbar"><div><p class="eyebrow">NYUNET / FACT CHECK</p><h1>ファクトパック確認・承認</h1><p class="sub">元記事を照合して、AI評価に渡してよい事実情報を承認します。</p></div><div class="top-actions"><a class="ghost back" href="./?brand=zen">編集デスクへ戻る</a><span id="who" class="user-label"></span></div></header>
+<main class="shell"><section class="panel notice"><strong>承認しても記事は公開されません</strong><p>元記事と必ず照合してください。自動生成した抜粋は未検証です。</p></section><p id="status" role="status">管理者認証を確認しています…</p>
+<section id="review-area" hidden><div class="panel toolbar"><div class="stats"><div><strong id="count">0</strong><span>要確認</span></div></div><button id="reload" class="ghost" type="button">再取得</button></div><div id="fact-list"></div></section></main>
+<script src="../zennyu/config.js?v=20261031-3"></script><script>(function app() {
+const cfg=window.ZENNEWS_CONFIG;
+const $=(s,root=document)=>root.querySelector(s);
+const esc=(v='')=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let session;
+const status=$('#status'),area=$('#review-area'),list=$('#fact-list'),key='nyu_admin_session_v1';
+if(!cfg?.supabaseUrl||!cfg?.publishableKey){status.textContent='設定がありません';return;}
+const auth=cfg.supabaseUrl+'/auth/v1',rest=cfg.supabaseUrl+'/rest/v1';
+async function loginReady(){
+ if(!session)return false;
+ if(session.expires_at>Date.now())return true;
+ const r=await fetch(auth+'/token?grant_type=refresh_token',{method:'POST',headers:{apikey:cfg.publishableKey,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:session.refresh_token})});
+ if(!r.ok)return false;const v=await r.json();
+ session={access_token:v.access_token,refresh_token:v.refresh_token,expires_at:Date.now()+Math.max(0,(Number(v.expires_in||3600)-30)*1000),user:v.user};
+ localStorage.setItem(key,JSON.stringify(session));return true;
+}
+async function api(path,options={},retry=true){
+ if(!await loginReady())throw Error('編集デスクでログインしてください。');
+ const h={apikey:cfg.publishableKey,Authorization:'Bearer '+session.access_token,Accept:'application/json'};
+ if(options.body)h['Content-Type']='application/json';
+ const r=await fetch(rest+'/'+path,{method:options.method||'GET',headers:h,body:options.body?JSON.stringify(options.body):undefined});
+ if(r.status===401&&retry){session.expires_at=0;if(await loginReady())return api(path,options,false);}
+ const data=await r.json().catch(()=>({}));
+ if(!r.ok)throw Error(data.message||data.error||'HTTP '+r.status);
+ return data;
+}
+const stageNames={announced:'発表・採択',planned:'予定・計画',pilot:'実証段階',started:'開始済み',ongoing:'継続中',completed:'完了',result_reported:'成果・結果'};
+function render(rows){
+ $('#count').textContent=rows.length;
+ list.innerHTML=rows.length?rows.map(r=>{
+  const source=r.nyu_source_items||{},url=source.source_url||r.extra_facts?.source_url||'';
+  const options=Object.entries(stageNames).map(([v,n])=>'<option value="'+v+'" '+(r.implementation_stage===v?'selected':'')+'>'+n+'</option>').join('');
+  const caveats=Array.isArray(r.caveats)?r.caveats.join('\n'):'';
+  const numbers=Array.isArray(r.key_numbers)?r.key_numbers:[];
+  return `<article class="panel fp" data-id="${esc(r.id)}" data-updated="${esc(r.updated_at)}">
+<h2>${esc(source.original_title||r.extra_facts?.source_title||'無題')}</h2>
+<p class="sub">出典：${esc(source.nyu_sources?.name||'不明')} ／ 元ニュース日：${esc(source.source_published_at||'不明')}</p>
+<p><a href="${esc(url)}" target="_blank" rel="noopener noreferrer">元記事を開いて事実を照合する</a></p>
+<div class="evidence"><strong>取得時の原文抜粋（未検証）</strong><p>${esc(r.extra_facts?.evidence_excerpt||r.event_summary||'なし')}</p>
+${numbers.length?`<strong>数値候補</strong><ul>${numbers.map(n=>`<li>${esc(n.literal||n)}：${esc(n.source_excerpt||'要照合')}</li>`).join('')}</ul>`:''}</div>
+<form class="fp-form">
+<label>確認済みの事実要約（40文字以上）<textarea name="summary" rows="4" required>${esc(r.event_summary||'')}</textarea></label>
+<label>何が変わったのか（20文字以上）<textarea name="change" rows="3" required>${esc(r.change_summary||'')}</textarea></label>
+<label>実施段階<select name="stage"><option value="">選択してください</option>${options}</select></label>
+<label>留保・未確認事項（1行に1つ）<textarea name="caveats" rows="3" required>${esc(caveats)}</textarea></label>
+<label>確認した出典URL<input name="url" value="${esc(url)}" readonly></label>
+<label>承認・保留理由（6文字以上）<textarea name="note" rows="2" required placeholder="元記事のどの部分を確認したか"></textarea></label>
+<fieldset><legend>元記事と照合してチェック</legend>
+<label><input type="checkbox" name="src"> 根拠と記述を確認</label>
+<label><input type="checkbox" name="stageconfirm"> 実施段階と成果を確認</label>
+<label><input type="checkbox" name="nums"> 数値・日付・固有名詞を確認</label>
+<label><input type="checkbox" name="caveatconfirm"> 留保・未確認点を確認</label></fieldset>
+<div class="buttons"><button class="primary" type="submit">確認済みとして承認</button><button class="ghost reject" type="button">要修正として保留</button></div>
+<p class="result" role="status"></p>
+</form>
+</article>`;
+ }).join(''):'<div class="empty">要確認のファクトパックはありません。</div>';
+ list.querySelectorAll('.fp').forEach(c=>{
+  $('form',c).addEventListener('submit',e=>{e.preventDefault();review(c,true);});
+  $('.reject',c).addEventListener('click',()=>review(c,false));
+ });
+}
+async function load(){
+ status.textContent='確認待ちを取得しています…';
+ const rows=await api('nyu_source_fact_packs?select=id,updated_at,extraction_status,event_summary,change_summary,implementation_stage,caveats,key_numbers,extra_facts,nyu_source_items(original_title,source_url,source_published_at,nyu_sources(name,domain))&extraction_status=eq.needs_review&order=created_at.desc&limit=50');
+ render(rows);status.textContent=rows.length+'件の確認待ちがあります。';
+}
+async function review(card,approve){
+ const f=$('form',card),el=name=>f.elements.namedItem(name),out=$('.result',card);
+ const flags=[el('src').checked,el('stageconfirm').checked,el('nums').checked,el('caveatconfirm').checked];
+ if(approve&&!flags.every(Boolean)){out.textContent='4つの確認欄をすべてチェックしてください。';return;}
+ if(el('note').value.trim().length<6){out.textContent='理由を6文字以上で入力してください。';return;}
+ if(!confirm(approve?'ファクトパックを確認済みにしますか？記事は公開されません。':'要修正として保留しますか？'))return;
+ const buttons=[...f.querySelectorAll('button')];buttons.forEach(b=>b.disabled=true);out.textContent='処理中…';
+ try{
+  const body={p_factpack_id:card.dataset.id,p_expected_updated_at:card.dataset.updated,
+  p_approve:approve,p_event_summary:el('summary').value,p_change_summary:el('change').value,
+  p_implementation_stage:el('stage').value,p_caveats:el('caveats').value.split('\n').map(s=>s.trim()).filter(Boolean),
+  p_review_note:el('note').value,p_confirm_source:flags[0],p_confirm_stage:flags[1],
+  p_confirm_numbers:flags[2],p_confirm_caveats:flags[3],p_confirm_source_url:el('url').value};
+  await api('rpc/nyu_review_factpack',{method:'POST',body});
+  await load();status.textContent=approve?'事実確認済みとして承認しました。記事は未公開です。':'要修正として保留しました。';
+ }catch(e){out.textContent='処理失敗：'+e.message+'。必要なら再取得してください。';}
+ finally{buttons.forEach(b=>b.disabled=false);}
+}
+async function boot(){
+ try{
+  session=JSON.parse(localStorage.getItem(key)||localStorage.getItem('zennyu_admin_session_v1')||'null');
+  if(!await loginReady())throw Error('編集デスクからログインしてください。');
+  const r=await fetch(auth+'/user',{headers:{apikey:cfg.publishableKey,Authorization:'Bearer '+session.access_token}});
+  if(!r.ok)throw Error('ログイン情報を確認できませんでした。');
+  const user=await r.json();
+  const admin=await api('nyu_admin_users?select=role,is_active&is_active=eq.true&user_id=eq.'+encodeURIComponent(user.id)+'&limit=1');
+  if(!admin.length||!['owner','admin','editor'].includes(admin[0].role))throw Error('管理者権限がありません。');
+  $('#who').textContent=user.email||'管理者';
+  area.hidden=false;await load();
+ }catch(e){status.textContent=e.message;}
+}
+$('#reload').addEventListener('click',()=>load().catch(e=>status.textContent=e.message));
+boot();
+})();</script></body></html>
