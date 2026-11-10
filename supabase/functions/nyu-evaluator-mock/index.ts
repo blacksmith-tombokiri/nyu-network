@@ -79,9 +79,15 @@ function fixtures():Source[] {
   const required=(s:ApprovedRow):string[]=>{
     const reasons:string[]=[];
     if(s.fact_status!=='complete')reasons.push('factpack_not_complete');
-    if(s.review_type!=='human_verified_source'||s.ready_for_scoring!==true)reasons.push('not_human_approved');
-    if(!s.reviewer_active||!s.reviewed_by||!s.reviewed_at||!normalize(s.review_note))reasons.push('reviewer_or_audit_missing');
-    if(s.reviewed_source_url!==s.source_url)reasons.push('source_url_changed');
+    const isAuto=s.review_type==='auto_source_verified_v1';
+    if(!['human_verified_source','auto_source_verified_v1'].includes(s.review_type||'')||s.ready_for_scoring!==true)reasons.push('not_approved');
+    if(isAuto){
+      if(s.source_type!=='government'&&s.source_type!=='public')reasons.push('auto_source_not_official');
+      if(s.auto_verified_url!==s.source_url||!s.auto_verified_at||s.auto_gate_version!=='nyu-factpack-auto-v0.1')reasons.push('auto_source_audit_invalid');
+      if(s.evidence_kind!=='official_html_main'||!normalize(s.evidence_excerpt,1200).includes(normalize(s.fact_summary,1200))||s.fact_summary!==s.fact_change)reasons.push('auto_evidence_or_extract_mismatch');
+      if(!s.fact_pack_id||s.fact_status!=='complete')reasons.push('auto_factpack_invalid');
+    }else if(!s.reviewer_active||!s.reviewed_by||!s.reviewed_at||!normalize(s.review_note))reasons.push('reviewer_or_audit_missing');
+    if(!isAuto&&s.reviewed_source_url!==s.source_url)reasons.push('source_url_changed');
     if(!s.source_hash||! /^[0-9a-f]{64}$/.test(s.source_hash))reasons.push('evidence_hash_missing');
     if(!normalize(s.evidence_excerpt,800)||normalize(s.evidence_excerpt,800).length<40)reasons.push('evidence_excerpt_missing');
     if(s.evidence_kind==='missing'||!s.evidence_kind)reasons.push('evidence_kind_missing');
@@ -100,15 +106,17 @@ function fixtures():Source[] {
     return {...o,accepted:true,blocked_reasons:[],approval:{reviewed_at:s.reviewed_at,review_type:s.review_type,source_hash_present:true,verified_for_mock_input:true},
       warning:'SIMULATION ONLY. Approved input used for a synthetic score, not actual AI verification. No publication.'};
   }
-  type ApprovedRow=Source&{review_type:string|null;ready_for_scoring:boolean;reviewed_by:string|null;reviewed_at:string|null;review_note:string|null;reviewed_source_url:string|null;reviewer_active:boolean;source_hash:string|null;evidence_excerpt:string|null;evidence_kind:string|null;fact_change:string|null;caveats:unknown;implementation_stage:string;source_eligible:boolean;has_evaluation:boolean;has_article:boolean};
+  type ApprovedRow=Source&{review_type:string|null;ready_for_scoring:boolean;reviewed_by:string|null;reviewed_at:string|null;review_note:string|null;reviewed_source_url:string|null;reviewer_active:boolean;source_hash:string|null;evidence_excerpt:string|null;evidence_kind:string|null;fact_change:string|null;caveats:unknown;implementation_stage:string;source_eligible:boolean;has_evaluation:boolean;has_article:boolean;source_type?:string;auto_verified_url?:string|null;auto_verified_at?:string|null;auto_gate_version?:string|null};
   const approvedFixtures=()=>{
-    const base:ApprovedRow={id:'fixture-approved',title:'架空の改善施策についての確認済み成果',source_url:'https://example.invalid/test',source_name:'テスト機関',domain:'example.invalid',summary:null,published_at:null,prefilter:'ai_candidate',fact_summary:'架空の施策で改善が報告されたという設定のテスト文章。実際の情報ではなく、模擬評価の接続経路を検証するための文章です。',fact_status:'complete',fact_pack_id:'fixture',category_hint:null,review_type:'human_verified_source',ready_for_scoring:true,reviewed_by:'fixture-human',reviewed_at:'2026-11-10T00:00:00Z',review_note:'架空の出典確認済み',reviewed_source_url:'https://example.invalid/test',reviewer_active:true,source_hash:'a'.repeat(64),evidence_excerpt:'架空の改善を確認したという想定の文章です。これは接続機能の検証専用フィクスチャであり、実際の報道や成果ではありません。',evidence_kind:'feed_summary',fact_change:'架空の施策により改善が確認されたとするテスト設定です。',caveats:['これは架空の内容で実在の成果ではありません。'],implementation_stage:'result_reported',source_eligible:true,has_evaluation:false,has_article:false};
+    const base:ApprovedRow={id:'fixture-approved',title:'架空の改善施策についての確認済み成果',source_url:'https://example.invalid/test',source_name:'テスト機関',domain:'example.invalid',summary:null,published_at:null,prefilter:'ai_candidate',fact_summary:'架空の施策で改善が報告されたという設定のテスト文章。実際の情報ではなく、模擬評価の接続経路を検証するための文章です。',fact_status:'complete',fact_pack_id:'fixture',category_hint:null,review_type:'human_verified_source',ready_for_scoring:true,reviewed_by:'fixture-human',reviewed_at:'2026-11-10T00:00:00Z',review_note:'架空の出典確認済み',reviewed_source_url:'https://example.invalid/test',reviewer_active:true,source_hash:'a'.repeat(64),evidence_excerpt:'架空の改善を確認したという想定の文章です。これは接続機能の検証専用フィクスチャであり、実際の報道や成果ではありません。',evidence_kind:'feed_summary',fact_change:'架空の施策により改善が確認されたとするテスト設定です。',caveats:['これは架空の内容で実在の成果ではありません。'],implementation_stage:'result_reported',source_eligible:true,has_evaluation:false,has_article:false,source_type:'government'};
     const denied={...base,id:'fixture-unapproved',review_type:'unverified_machine_draft',ready_for_scoring:false};
     const old={...base,id:'fixture-legacy',review_type:'manual_official_source_body',ready_for_scoring:false};
     const changed={...base,id:'fixture-changed-url',reviewed_source_url:'https://example.invalid/other'};
     const processed={...base,id:'fixture-processed',has_evaluation:true};
-    const result=[base,denied,old,changed,processed].map(approvedOutput);
-    return {ok:true,version:VERSION,mode:'approval_gate_fixtures',provider:'mock',api_calls:0,database_writes:0,publications_created:0,results:result,checks:{approved_pass:result[0].accepted===true,unapproved_blocked:result[1].accepted===false,legacy_blocked:result[2].accepted===false,source_changed_blocked:result[3].accepted===false,duplicate_blocked:result[4].accepted===false}};
+    const auto:ApprovedRow={...base,id:'fixture-auto',review_type:'auto_source_verified_v1',reviewed_by:null,reviewed_at:null,review_note:null,reviewed_source_url:null,reviewer_active:false,auto_verified_url:base.source_url,auto_verified_at:'2026-11-10T00:00:00Z',auto_gate_version:'nyu-factpack-auto-v0.1',evidence_kind:'official_html_main',fact_summary:'架空の文書公開事実についての明示的な記録です。実際の政策成果を保証するものではありません。',fact_change:'架空の文書公開事実についての明示的な記録です。実際の政策成果を保証するものではありません。',evidence_excerpt:'架空の文書公開事実についての明示的な記録です。実際の政策成果を保証するものではありません。この文章は正式な出典を検査したものではなく架空のテスト用です。'};
+    const autoBad={...auto,id:'fixture-auto-bad',auto_verified_url:'https://example.invalid/altered'};
+    const result=[base,denied,old,changed,processed,auto,autoBad].map(approvedOutput);
+    return {ok:true,version:VERSION,mode:'approval_gate_fixtures',provider:'mock',api_calls:0,database_writes:0,publications_created:0,results:result,checks:{approved_pass:result[0].accepted===true,unapproved_blocked:result[1].accepted===false,legacy_blocked:result[2].accepted===false,source_changed_blocked:result[3].accepted===false,duplicate_blocked:result[4].accepted===false,auto_approved_pass:result[5].accepted===true,auto_url_mismatch_blocked:result[6].accepted===false}};
   };
 async function authorized(req:Request) {
   const token=req.headers.get('x-nyu-token')??'';
@@ -144,7 +152,7 @@ Deno.serve(async (req:Request)=>{
           i.source_summary as summary,i.source_published_at::text as published_at,
           i.metadata->'zencho_prefilter'->>'decision' as prefilter,
           f.event_summary as fact_summary,f.extraction_status as fact_status,f.id::text as fact_pack_id,
-          null::text as category_hint, f.extra_facts->>'review_type' as review_type,
+          null::text as category_hint,s.source_type, f.extra_facts->>'verified_source_url' as auto_verified_url,f.extra_facts->>'verified_at' as auto_verified_at,f.extra_facts->>'auto_gate_version' as auto_gate_version, f.extra_facts->>'review_type' as review_type,
           (f.extra_facts->>'ready_for_scoring')='true' as ready_for_scoring,
           f.extra_facts->>'reviewed_by' as reviewed_by, f.extra_facts->>'reviewed_at' as reviewed_at,
           f.extra_facts->>'review_note' as review_note, f.extra_facts->>'reviewed_source_url' as reviewed_source_url,
@@ -158,7 +166,7 @@ Deno.serve(async (req:Request)=>{
         from public.nyu_source_fact_packs f join public.nyu_source_items i on i.id=f.source_item_id
         join public.nyu_sources s on s.id=i.source_id
         where f.extraction_status='complete'
-          and f.extra_facts->>'review_type'='human_verified_source'
+          and f.extra_facts->>'review_type' in ('human_verified_source','auto_source_verified_v1')
           and f.extra_facts->>'ready_for_scoring'='true'
           and (${domain}::text is null or s.domain=${domain})
           and (${id}::uuid is null or i.id=${id}::uuid)
@@ -166,7 +174,7 @@ Deno.serve(async (req:Request)=>{
       `;
       const results=approved.map(approvedOutput);
       return Response.json({ok:true,version:VERSION,mode,provider:'mock',api_calls:0,database_writes:0,publications_created:0,processed:results.length,accepted:results.filter(x=>x.accepted).length,blocked:results.filter(x=>!x.accepted).length,results,
-        note:'Human-approved, traceable factpacks only. Synthetic scoring preview, no article publication, no evaluation persistence.'});
+        note:'Human- or strictly source-verified factpacks only. Synthetic scoring preview, no article publication, no evaluation persistence.'});
     }
     if(mode==='fixtures') {
       const result=fixtures().map((x,i)=>output(x,[85,75,40][i],true));
