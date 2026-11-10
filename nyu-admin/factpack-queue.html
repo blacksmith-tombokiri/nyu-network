@@ -1,0 +1,84 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>記事の例外確認｜ぜんにゅー</title><link rel="stylesheet" href="admin.css?v=20261110-reviewqueue">
+<style>.review-banner{padding:16px 20px;margin:16px 0;font-size:13px;line-height:1.8}.review-card{border:1px solid #d8e0d8;background:#fff;border-radius:14px;padding:22px;margin:16px 0}.review-card h2{font-size:18px;line-height:1.55;margin:12px 0}.review-card-head{display:flex;gap:10px;align-items:center}.tag{font-size:12px;border-radius:99px;background:#fff0cb;padding:5px 10px;font-weight:700}.reasons{padding:13px;background:#f3f5f3;border-radius:9px;margin:14px 0;font-size:13px}.reasons p{margin:5px 0;line-height:1.7}.review-card form{display:grid;gap:12px}.review-card label{display:grid;gap:6px;font-size:13px;font-weight:700}.review-card textarea{font:inherit;line-height:1.65;border:1px solid #c7d2c8;border-radius:8px;width:100%;padding:10px}.review-actions{display:flex;flex-wrap:wrap;gap:10px}.feedback{min-height:18px;font-size:13px;color:#325e46}.review-card button:disabled{opacity:.5}.back{display:inline-block;text-decoration:none}</style></head><body>
+<header class="topbar"><div><p class="eyebrow">NYUNET / EXCEPTION QUEUE</p><h1>記事の例外確認</h1><p class="sub">自動で確認できず、編集上の検討余地がある記事だけ表示します。</p></div><div class="top-actions"><a href="./?brand=zen" class="ghost back">編集デスクへ戻る</a><a href="factpacks.html" class="ghost back">ファクトパック確認へ</a></div></header>
+<main class="shell"><section class="panel review-banner"><strong>全件承認は不要です。</strong><p>確実な事実が確認できない場合は無理に承認せず、理由を記録して除外できます。下書き作成後も事実確認が必要で、ここから記事が公開されることはありません。</p></section>
+<p id="message" role="status">ログイン状態を確認しています…</p><section id="queue-app" hidden><div class="panel" style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px"><strong>確認待ち：<span id="queue-count">0</span>件</strong><button class="ghost" id="reload" type="button">最新を取得</button></div><div id="cards"></div></section></main>
+<script src="../zennyu/config.js?v=20261031-3"></script><script>(function reviewQueueApp(){
+  const cfg=window.ZENNEWS_CONFIG, $=s=>document.querySelector(s);
+  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const key='nyu_admin_session_v1';let session=null;
+  const auth=cfg?.supabaseUrl+'/auth/v1',rest=cfg?.supabaseUrl+'/rest/v1';
+  if(!cfg?.supabaseUrl||!cfg?.publishableKey){$('#message').textContent='接続設定がありません。';return;}
+  async function ensure(){
+    if(!session)return false;
+    if(session.expires_at>Date.now())return true;
+    const res=await fetch(auth+'/token?grant_type=refresh_token',{method:'POST',headers:{apikey:cfg.publishableKey,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:session.refresh_token})});
+    if(!res.ok)return false;
+    const d=await res.json();session={access_token:d.access_token,refresh_token:d.refresh_token,expires_at:Date.now()+Math.max(0,(Number(d.expires_in||3600)-30)*1000),user:d.user};
+    localStorage.setItem(key,JSON.stringify(session));return true;
+  }
+  async function api(path,method='GET',body=null,retry=true){
+    if(!await ensure())throw Error('編集デスクでログインしてください。');
+    const headers={apikey:cfg.publishableKey,Authorization:'Bearer '+session.access_token,Accept:'application/json'};
+    if(body!==null)headers['Content-Type']='application/json';
+    const res=await fetch(rest+'/'+path,{method,headers,body:body===null?undefined:JSON.stringify(body)});
+    if(res.status===401&&retry){session.expires_at=0;if(await ensure())return api(path,method,body,false);}
+    const result=await res.json().catch(()=>({}));
+    if(!res.ok)throw Error(result.message||result.error||'HTTP '+res.status);
+    return result;
+  }
+  const labels={official_body_unavailable:'元記事本文を取得できない',source_date_missing:'公開日時が不明',publication_date_unconfirmed:'元記事内で公開日を確認できない',headline_not_exactly_in_official_body:'見出しの一致を確認できない',length_outside_limits:'根拠本文の長さが不足',insufficient_evidence_excerpt:'十分な原文抜粋がない',ambiguous_or_nonextractive_claim:'発表内容が曖昧・成果を断定できない',not_eligible_source:'自動確認の対象外情報源',source_not_eligible:'自動確認の情報源条件外',no_editorial_value_signal:'掲載価値の兆候が乏しい'};
+  const sourceLink=v=>{try{const u=new URL(v);return ['http:','https:'].includes(u.protocol)?u.href:null;}catch{return null;}};
+  function render(rows){
+    $('#queue-count').textContent=rows.length;
+    $('#cards').innerHTML=rows.length?rows.map(q=>{
+      const i=q.nyu_source_items||{},url=sourceLink(i.source_url),raw=Array.isArray(q.reason_codes)?q.reason_codes:[];
+      return `<article class="review-card" data-id="${esc(q.source_item_id)}"><div class="review-card-head"><span class="tag">要確認</span><small>${esc(i.nyu_sources?.name||'情報源')}</small></div>
+      <h2>${esc(i.original_title||'（タイトルなし）')}</h2><p><a ${url?`href="${esc(url)}" target="_blank" rel="noopener noreferrer"`:'aria-disabled="true"'}>出典を確認する</a></p>
+      <div class="reasons"><strong>自動確認できなかった理由</strong><p>${raw.map(r=>esc(labels[r]||r)).join(' ／ ')||'要確認'}</p></div>
+      <form><label>元記事で確認した文章（40～1800文字）<textarea name="excerpt" rows="4" placeholder="元記事の本文から確認できた文章を入力"></textarea></label>
+      <label>確認メモ・理由（6文字以上）<textarea name="note" rows="2" required></textarea></label>
+      <div class="review-actions"><button class="primary" type="submit">ファクトパック下書きを作成</button><button class="ghost dismiss" type="button">確認対象から除外</button></div><p class="feedback" role="status"></p></form>
+      </article>`;
+    }).join(''):'<div class="panel empty">確認待ちの記事はありません。</div>';
+    $('#cards').querySelectorAll('article').forEach(el=>{
+      const form=el.querySelector('form');
+      form.addEventListener('submit',e=>{e.preventDefault();submit(el,'prepare');});
+      el.querySelector('.dismiss').addEventListener('click',()=>submit(el,'dismiss'));
+    });
+  }
+  async function load(){
+    $('#message').textContent='確認待ち記事を読み込み中…';
+    const rows=await api('nyu_factpack_review_queue?select=source_item_id,decision,status,reason_codes,source_note,routed_at,nyu_source_items(original_title,source_url,source_summary,source_published_at,nyu_sources(name,domain))&decision=eq.review&status=eq.pending&order=routed_at.desc&limit=100');
+    render(rows);$('#message').textContent='確認待ち '+rows.length+'件。判断が難しい記事だけ表示しています。';
+  }
+  async function submit(card,op){
+    const form=card.querySelector('form'),feedback=card.querySelector('.feedback');
+    const note=form.elements.namedItem('note').value.trim();
+    const excerpt=form.elements.namedItem('excerpt').value.trim();
+    if(note.length<6){feedback.textContent='確認メモを6文字以上入力してください。';return;}
+    if(op==='prepare'&&(excerpt.length<40||excerpt.length>1800)){feedback.textContent='元記事の原文を40～1800文字で入力してください。';return;}
+    if(!confirm(op==='prepare'?'未承認のファクトパック下書きを作成しますか？記事は公開されません。':'この記事を確認対象から外しますか？'))return;
+    const buttons=[...form.querySelectorAll('button')];buttons.forEach(b=>b.disabled=true);
+    feedback.textContent='処理しています…';
+    try{
+      if(op==='prepare')await api('rpc/nyu_prepare_factpack_from_queue','POST',{p_source_item_id:card.dataset.id,p_evidence_excerpt:excerpt,p_review_note:note});
+      else await api('rpc/nyu_set_factpack_review_queue_status','POST',{p_source_item_id:card.dataset.id,p_new_status:'dismissed',p_note:note});
+      await load();
+      $('#message').textContent=op==='prepare'?'下書きを作成しました。ファクトパック確認画面で内容を照合・承認してください。':'確認対象から除外しました。';
+    }catch(e){feedback.textContent='操作できませんでした：'+e.message;}
+    finally{buttons.forEach(b=>b.disabled=false);}
+  }
+  async function boot(){
+    try{
+      session=JSON.parse(localStorage.getItem(key)||localStorage.getItem('zennyu_admin_session_v1')||'null');
+      if(!await ensure())throw Error('編集デスクでログインしてください。');
+      const check=await api('nyu_admin_users?select=user_id,is_active,role&is_active=eq.true&limit=1');
+      if(!check.length)throw Error('管理者権限がありません。');
+      $('#queue-app').hidden=false;
+      await load();
+    }catch(e){$('#message').textContent=e.message;}
+  }
+  $('#reload').addEventListener('click',()=>load().catch(e=>$('#message').textContent=e.message));
+  boot();
+})();</script></body></html>
