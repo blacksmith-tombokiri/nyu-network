@@ -46,6 +46,43 @@
   const logoutBtn = $('#logout-btn');
   const listRoot = $('#review-list');
   const status = $('#status');
+  const inboxNotification = $('#inbox-notification');
+  const inboxBadge = $('#inbox-unread-badge');
+  let inboxCheckInFlight = false;
+  async function refreshInboxNotification() {
+    if (!inboxNotification || reviewApp.hidden || document.hidden || inboxCheckInFlight) return;
+    inboxCheckInFlight = true;
+    try {
+      // Only the current zennyu project's "new" inquiries are notification-worthy.
+      // The admin's existing authenticated Supabase session and RLS protect this request.
+      const rows = await api('project_inbox_inquiries?select=id,project_inbox_projects!inner(code)&project_inbox_projects.code=eq.zennyu&status=eq.new');
+      const count = rows.length;
+      inboxBadge.textContent = count > 99 ? '99+' : String(count);
+      inboxBadge.hidden = count === 0;
+      inboxNotification.classList.toggle('has-new', count > 0);
+      inboxNotification.title = count ? `ぜんにゅー：未対応のお問い合わせ ${count}件` : 'ぜんにゅー：未対応のお問い合わせはありません';
+      inboxNotification.setAttribute('aria-label', inboxNotification.title + '。Project Inboxを開く');
+    } catch (err) {
+      // Do not present an incorrect zero when the network or session has failed.
+      inboxBadge.hidden = true;
+      inboxNotification.classList.remove('has-new');
+      inboxNotification.title = 'Project Inbox（通知状況を取得できません）';
+      console.warn('Inbox notification unavailable:', err);
+    } finally {
+      inboxCheckInFlight = false;
+    }
+  }
+  function showInboxIcon(show) {
+    if (!inboxNotification) return;
+    inboxNotification.hidden = !show;
+    if (show) refreshInboxNotification();
+  }
+  // A lightweight check is enough here; no paid APIs or push infrastructure.
+  setInterval(refreshInboxNotification, 60000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) refreshInboxNotification();
+  });
+
 
   const ui = () => BRAND_UI[activeBrand] || {
     name: brands.find(b => b.slug === activeBrand)?.name || activeBrand,
@@ -166,6 +203,7 @@
     reviewApp.hidden = true;
     logoutBtn.hidden = true;
     userLabel.textContent = '';
+    showInboxIcon(false);
   }
 
   function showSetup(user) {
@@ -174,6 +212,7 @@
     reviewApp.hidden = true;
     logoutBtn.hidden = false;
     userLabel.textContent = user.email || 'ログイン済み';
+    showInboxIcon(false);
     $('#bootstrap-sql').textContent = `insert into public.nyu_admin_users (user_id, role, is_active)\nvalues ('${user.id}', 'owner', true)\non conflict (user_id) do update\nset role = 'owner', is_active = true, updated_at = now();`;
   }
 
@@ -370,6 +409,7 @@
     reviewApp.hidden = false;
     logoutBtn.hidden = false;
     userLabel.textContent = user.email || '管理者';
+    showInboxIcon(true);
     await loadBrands();
     await loadQueue();
   }
