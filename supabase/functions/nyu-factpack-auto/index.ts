@@ -95,8 +95,8 @@ Deno.serve(async req=>{
   for(const s of rows){
    if(s.existing_id){results.push({source_item_id:s.id,status:'existing_preserved'});continue;}
    const officialSource=s.prefilter==='ai_candidate'&&s.eligible&&['government','public'].includes(s.source_type);
-   const fetched=officialSource?await fetchBody(s):{kind:'missing',text:'',note:'not_official_source'};
-   const r=check(s,fetched.text,fetched.kind);
+   const fetched=officialSource?await fetchBody(s):{kind:'missing',text:'',note:s.prefilter==='manual_review'?'prefilter_manual_review_no_source_fetch':'not_official_source'};
+   const r=s.prefilter==='manual_review'?{ok:false,reasons:['prefilter_manual_review'],excerpt:'',title:tidy(s.title,250)}:check(s,fetched.text,fetched.kind);
    let status=r.ok?'auto_eligible_preview':'needs_review';
    let routed:null|'review'|'skip'=null;
    if(mode==='route_queue'&&!r.ok){
