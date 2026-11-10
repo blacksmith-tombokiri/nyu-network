@@ -49,15 +49,21 @@ async function fetchBody(s:Item){
  }catch{return {kind:'missing',text:'',note:'fetch_error'};}
 }
 
-const routine=/配信決定|配信開始|ゲーム|アーケード|DLC|アップデート|動画を掲載|ダッシュボードを更新|ページを更新|開催します|検討会|審議します|会議|イベント募集|募集開始|プレゼントキャンペーン/i;
+const routine=/配信決定|配信開始|アーケードアーカイブス|DLC|アップデート|動画を掲載|ダッシュボードを更新|ページを更新|開催します|検討会|審議します|会議|イベント募集|募集開始|プレゼントキャンペーン/i;
 const possibleValue=/福祉|医療|健康|支援|環境|防災|復興|農|食|保全|保護|研究|教育|表彰|認定|選定|採択|改善|省エネ|自然|資源|生物多様性|技術開発|補助金/i;
+const followupValue=/国民向け行政サービスロードマップ|サービスを開始した事業者及び事例一覧|導入事例を追加|新たに導入|実用化|サービスを開始|制度を開始|社会実装/i;
+const routineEvenWithValue=/解説動画を掲載|取組項目と概要を更新|審議します|検討会を開催します|ダッシュボードを更新|式典|表敬訪問/i;
 function route(s:Item, reasons:string[]) {
- if(s.existing_id||s.already_evaluated||s.already_published) return {decision:'skip',reasons:['existing_record']};
+ if(s.existing_id||s.already_evaluated||s.already_published)return {decision:'skip',reasons:['existing_record']};
  if(!s.eligible||s.prefilter!=='ai_candidate')return {decision:'skip',reasons:['not_eligible_or_not_candidate']};
- // Focus the human editorial queue on possibly newsworthy stories, never routine updates.
- if(routine.test(s.title)&&!possibleValue.test(s.title))return {decision:'skip',reasons:['routine_or_offtopic']};
+ // Avoid false positives from topic-only cues (e.g. disaster, environment, support) when the event is a routine announcement.
+ if(routineEvenWithValue.test(s.title))return {decision:'skip',reasons:['routine_without_new_outcome']};
+ // Potentially substantive programme details or evidence of a newly adopted service merit a human look,
+ // but never constitute an automatic "positive-news" judgement.
+ if(followupValue.test(s.title))return {decision:'review',reasons:['substantive_update_needs_evidence',...reasons]};
+ if(routine.test(s.title))return {decision:'skip',reasons:['routine_or_offtopic']};
  if(!possibleValue.test(s.title))return {decision:'skip',reasons:['no_editorial_value_signal']};
- return {decision:'review',reasons};
+ return {decision:'review',reasons:['topic_value_needs_evidence',...reasons]};
 }
 async function auth(req:Request){const tok=req.headers.get('x-nyu-token')||'';if(!tok)return false;const v=await db.unsafe("select decrypted_secret from vault.decrypted_secrets where name='nyu_fetch_token' limit 1");if(v.length!==1)return false;const a=new TextEncoder().encode(tok),b=new TextEncoder().encode(v[0].decrypted_secret);if(a.length!==b.length)return false;let diff=0;for(let i=0;i<a.length;i++)diff|=a[i]^b[i];return diff===0;}
 Deno.serve(async req=>{
@@ -71,7 +77,7 @@ Deno.serve(async req=>{
    const item:Item={id:'fixture',title:'令和8年度の行政手続に関する詳細な報告書を公開しました',url:'https://example.invalid/news',domain:'example.invalid',name:'架空省庁',source_type:'government',published_at:'2026-11-10T00:00:00Z',eligible:true,prefilter:'ai_candidate',existing_id:null,already_evaluated:false,already_published:false};
    const body='令和8年度の行政手続に関する詳細な報告書を公開しました。2026年11月10日。令和8年度の行政手続に関する詳細な報告書を公開しました。これは架空の文書公開の検証データです。実在する省庁の発表ではありません。文書の公開を想定した技術的なテストであり、取り組みの実際の成果を保証するものではありません。公開した資料は行政手続の記録を取りまとめた架空の文書です。本試験では記事から確認できる公表行為だけを抽出するのであり、資料に記載された行政サービスの実績が正しいという判断は含みません。';
    const a=check(item,body,'official_main'),b=check({...item,title:'来年度の改善成果を目指す計画を発表しました'},body,'official_main'),c=check(item,body,'feed_summary'),d=check({...item,existing_id:'exists'},body,'official_main');
-   return Response.json({ok:true,mode,version:VERSION,checks:{strict_html:a.ok,ambiguous_blocked:!b.ok,rss_blocked:!c.ok,existing_blocked:!d.ok},fixture_blockers:a.reasons,api_calls:0,db_writes:0,publications_created:0});
+   return Response.json({ok:true,mode,version:VERSION,checks:{strict_html:a.ok,ambiguous_blocked:!b.ok,rss_blocked:!c.ok,existing_blocked:!d.ok,substantive_roadmap_to_review:route({...item,title:'国民向け行政サービスロードマップの最新版を公表しました'},['missing_body']).decision==='review',new_adoption_case_to_review:route({...item,title:'サービスを開始した事業者及び事例一覧を更新しました'},['missing_body']).decision==='review',explainer_video_to_skip:route({...item,title:'AIの解説動画を掲載しました'},['missing_body']).decision==='skip',routine_meeting_to_skip:route({...item,title:'環境問題に関する検討会を開催します'},['missing_body']).decision==='skip',routine_game_release_to_skip:route({...item,title:'アーケードアーカイブス新作ゲーム配信決定'},['missing_body']).decision==='skip',inactive_source_to_skip:route({...item,eligible:false,title:'防災庁誕生'},['missing_body']).decision==='skip'},fixture_blockers:a.reasons,api_calls:0,db_writes:0,publications_created:0});
   }
   const domain=typeof args.domain==='string'&&args.domain.length<=200?args.domain:null;
   const itemId=typeof args.source_item_id==='string'&&/^[0-9a-f]{8}-[0-9a-f-]{27,}$/.test(args.source_item_id)?args.source_item_id:null;
