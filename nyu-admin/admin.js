@@ -232,6 +232,17 @@
   function isFeatured(item) { return Boolean(currentFeatured?.id && item.article_id === currentFeatured.id); }
   function isReviewBand(item) { const n=Number(item.score_total); return Number.isFinite(n) && n >= 70 && n <= 79; }
 
+  // Review-only items and unpublished 70-79 items have a 14-day editorial shelf life.
+  // Published articles and 80+ scores are not subject to this queue retention rule.
+  function retainedForEditorial(item) {
+    if (!isReviewBand(item) || stateOf(item)==='published') return true;
+    const date = item.article_id
+      ? (item.unpublished_at || item.evaluated_at || item.review_date)
+      : (item.evaluated_at || item.review_date);
+    const timestamp = date ? new Date(date).getTime() : NaN;
+    return Number.isFinite(timestamp) && timestamp >= Date.now() - 14*86400000;
+  }
+
   function visibleItems() {
     let list = [...items];
     if (filter === 'published') list = list.filter(x => stateOf(x) === 'published');
@@ -351,7 +362,7 @@
       api(`nyu_admin_article_catalog?select=*&brand_slug=eq.${encodeURIComponent(activeBrand)}&order=review_date.desc.nullslast,score_total.desc.nullslast`),
       loadFeatured()
     ]);
-    items = rows || [];
+    items = (rows || []).filter(retainedForEditorial);
     status.textContent = `${ui().name}：${items.length}件を表示できます。`;
     render();
   }
