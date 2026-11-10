@@ -2,7 +2,7 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import postgres from 'npm:postgres@3.4.7';
 
 const sql = postgres(Deno.env.get('SUPABASE_DB_URL')!, { prepare: false, max: 1, idle_timeout: 5 });
-const VERSION = 'nyu-evaluator-mock-v0.1';
+const VERSION = 'nyu-evaluator-mock-v0.2-structured-preview';
 const BRANDS = new Set(['zencho']);
 const CATEGORIES = new Set(['good','forward','nature','repair','food','mind']);
 type Source = {
@@ -83,15 +83,36 @@ function fixtures():Source[] {
     if(!['human_verified_source','auto_source_verified_v1'].includes(s.review_type||'')||s.ready_for_scoring!==true)reasons.push('not_approved');
     if(isAuto){
       if(s.source_type!=='government'&&s.source_type!=='public')reasons.push('auto_source_not_official');
-      if(s.auto_verified_url!==s.source_url||!s.auto_verified_at||s.auto_gate_version!=='nyu-factpack-auto-v0.1')reasons.push('auto_source_audit_invalid');
-      if(s.evidence_kind!=='official_html_main'||!normalize(s.evidence_excerpt,1200).includes(normalize(s.fact_summary,1200))||s.fact_summary!==s.fact_change)reasons.push('auto_evidence_or_extract_mismatch');
+      if(s.auto_verified_url!==s.source_url||!s.auto_verified_at||!['nyu-factpack-auto-v0.1','nyu-factpack-auto-v0.4-structured'].includes(s.auto_gate_version||''))reasons.push('auto_source_audit_invalid');
+      if(s.auto_gate_version==='nyu-factpack-auto-v0.4-structured'){
+        const f=s.structured_v04;
+        const claim=normalize(f?.action?.quote,1200);
+        const subject=normalize(f?.subject?.value,120);
+        const excerpt=normalize(s.evidence_excerpt,2000);
+        const planned=Array.isArray(f?.planned_actions)?f.planned_actions:[];
+        const numberValid=Array.isArray(f?.numbers)&&f.numbers.every((n:any)=>
+          typeof n.value==='string'&&/^\d{1,5}$/.test(n.value)&&
+          typeof n.unit==='string'&&typeof n.quote==='string'&&
+          excerpt.includes(n.quote)&&n.quote.includes(n.value+n.unit));
+        if(!f||f.ready_for_scoring!==true||f.ready_for_publication!==false||
+          f.subject?.status!=='verified'||f.action?.status!=='verified'||
+          !subject||!claim.includes(subject)||!normalize(f.action.value,25)||
+          f.source?.url!==s.source_url||f.source?.publisher!==s.source_name||
+          !excerpt.includes(claim)||!numberValid||
+          !['announced','started','completed','result_reported'].includes(f.stage)||
+          planned.some((x:any)=>typeof x!=='string'||!excerpt.includes(x)))
+          reasons.push('structured_evidence_invalid');
+        if(s.evidence_kind!=='official_html_main'||s.fact_change!==claim||!s.fact_summary)
+          reasons.push('auto_evidence_or_extract_mismatch');
+      }else if(s.evidence_kind!=='official_html_main'||!normalize(s.evidence_excerpt,1200).includes(normalize(s.fact_summary,1200))||s.fact_summary!==s.fact_change)
+        reasons.push('auto_evidence_or_extract_mismatch');
       if(!s.fact_pack_id||s.fact_status!=='complete')reasons.push('auto_factpack_invalid');
     }else if(!s.reviewer_active||!s.reviewed_by||!s.reviewed_at||!normalize(s.review_note))reasons.push('reviewer_or_audit_missing');
     if(!isAuto&&s.reviewed_source_url!==s.source_url)reasons.push('source_url_changed');
     if(!s.source_hash||! /^[0-9a-f]{64}$/.test(s.source_hash))reasons.push('evidence_hash_missing');
     if(!normalize(s.evidence_excerpt,800)||normalize(s.evidence_excerpt,800).length<40)reasons.push('evidence_excerpt_missing');
     if(s.evidence_kind==='missing'||!s.evidence_kind)reasons.push('evidence_kind_missing');
-    if(!normalize(s.fact_summary)||normalize(s.fact_summary).length<40||!normalize(s.fact_change)||normalize(s.fact_change).length<20)reasons.push('fact_fields_incomplete');
+    if(!normalize(s.fact_summary)||(s.auto_gate_version==='nyu-factpack-auto-v0.4-structured'?normalize(s.fact_summary).length<4:normalize(s.fact_summary).length<40)||!normalize(s.fact_change)||normalize(s.fact_change).length<20)reasons.push('fact_fields_incomplete');
     if(!Array.isArray(s.caveats)||s.caveats.length===0)reasons.push('caveats_missing');
     if(!['announced','planned','pilot','started','ongoing','completed','result_reported'].includes(s.implementation_stage))reasons.push('stage_invalid');
     if(!s.source_eligible||s.prefilter!=='ai_candidate')reasons.push('source_or_prefilter_not_eligible');
@@ -103,20 +124,42 @@ function fixtures():Source[] {
     if(reasons.length) return {source_item_id:s.id,accepted:false,blocked_reasons:reasons,actually_published:false};
     const src:Source={id:s.id,title:s.title,source_url:s.source_url,source_name:s.source_name,domain:s.domain,summary:s.summary,published_at:s.published_at,prefilter:s.prefilter,fact_summary:s.fact_summary,fact_status:s.fact_status,fact_pack_id:s.fact_pack_id,category_hint:null};
     const o=output(src,undefined,true);
-    return {...o,accepted:true,blocked_reasons:[],approval:{reviewed_at:s.reviewed_at,review_type:s.review_type,source_hash_present:true,verified_for_mock_input:true},
+    // This is a draft preview, not an AI-generated news article.
+    const st=s.structured_v04;
+    const structuredPreview=st&&s.auto_gate_version==='nyu-factpack-auto-v0.4-structured'?{
+      preview_type:'mock_article_draft',
+      visible_label:'［模擬評価・未公開］',
+      title:'【確認中】'+s.title,
+      lead:normalize(st.action?.quote,550),
+      facts:{subject:st.subject?.value||null,action:st.action?.value||null,stage:st.stage||'unknown',
+        numbers:Array.isArray(st.numbers)?st.numbers.map((n:any)=>({label:n.label||null,value:n.value,unit:n.unit})):[],
+        planned_actions:st.planned_actions||[]},
+      citation:{source_name:s.source_name,source_url:s.source_url,published_at:s.published_at},
+      score_is_synthetic:true,
+      mock_score:o.mock_evaluation.score_total,
+      factpack_id:s.fact_pack_id,
+      can_publish:false,
+      disclaimer:'採点は固定ルールによるテスト値。発表事実のみの抜粋であり、社会的成果・善兆評価を保証しません。'
+    }:null;
+    return {...o,article_preview:structuredPreview,accepted:true,blocked_reasons:[],approval:{reviewed_at:s.reviewed_at,review_type:s.review_type,source_hash_present:true,verified_for_mock_input:true},
       warning:'SIMULATION ONLY. Approved input used for a synthetic score, not actual AI verification. No publication.'};
   }
-  type ApprovedRow=Source&{review_type:string|null;ready_for_scoring:boolean;reviewed_by:string|null;reviewed_at:string|null;review_note:string|null;reviewed_source_url:string|null;reviewer_active:boolean;source_hash:string|null;evidence_excerpt:string|null;evidence_kind:string|null;fact_change:string|null;caveats:unknown;implementation_stage:string;source_eligible:boolean;has_evaluation:boolean;has_article:boolean;source_type?:string;auto_verified_url?:string|null;auto_verified_at?:string|null;auto_gate_version?:string|null};
+  type ApprovedRow=Source&{structured_v04:any;review_type:string|null;ready_for_scoring:boolean;reviewed_by:string|null;reviewed_at:string|null;review_note:string|null;reviewed_source_url:string|null;reviewer_active:boolean;source_hash:string|null;evidence_excerpt:string|null;evidence_kind:string|null;fact_change:string|null;caveats:unknown;implementation_stage:string;source_eligible:boolean;has_evaluation:boolean;has_article:boolean;source_type?:string;auto_verified_url?:string|null;auto_verified_at?:string|null;auto_gate_version?:string|null};
   const approvedFixtures=()=>{
-    const base:ApprovedRow={id:'fixture-approved',title:'架空の改善施策についての確認済み成果',source_url:'https://example.invalid/test',source_name:'テスト機関',domain:'example.invalid',summary:null,published_at:null,prefilter:'ai_candidate',fact_summary:'架空の施策で改善が報告されたという設定のテスト文章。実際の情報ではなく、模擬評価の接続経路を検証するための文章です。',fact_status:'complete',fact_pack_id:'fixture',category_hint:null,review_type:'human_verified_source',ready_for_scoring:true,reviewed_by:'fixture-human',reviewed_at:'2026-11-10T00:00:00Z',review_note:'架空の出典確認済み',reviewed_source_url:'https://example.invalid/test',reviewer_active:true,source_hash:'a'.repeat(64),evidence_excerpt:'架空の改善を確認したという想定の文章です。これは接続機能の検証専用フィクスチャであり、実際の報道や成果ではありません。',evidence_kind:'feed_summary',fact_change:'架空の施策により改善が確認されたとするテスト設定です。',caveats:['これは架空の内容で実在の成果ではありません。'],implementation_stage:'result_reported',source_eligible:true,has_evaluation:false,has_article:false,source_type:'government'};
+    const base:ApprovedRow={id:'fixture-approved',title:'架空の改善施策についての確認済み成果',source_url:'https://example.invalid/test',source_name:'テスト機関',domain:'example.invalid',summary:null,published_at:null,prefilter:'ai_candidate',fact_summary:'架空の施策で改善が報告されたという設定のテスト文章。実際の情報ではなく、模擬評価の接続経路を検証するための文章です。',fact_status:'complete',fact_pack_id:'fixture',category_hint:null,structured_v04:null,review_type:'human_verified_source',ready_for_scoring:true,reviewed_by:'fixture-human',reviewed_at:'2026-11-10T00:00:00Z',review_note:'架空の出典確認済み',reviewed_source_url:'https://example.invalid/test',reviewer_active:true,source_hash:'a'.repeat(64),evidence_excerpt:'架空の改善を確認したという想定の文章です。これは接続機能の検証専用フィクスチャであり、実際の報道や成果ではありません。',evidence_kind:'feed_summary',fact_change:'架空の施策により改善が確認されたとするテスト設定です。',caveats:['これは架空の内容で実在の成果ではありません。'],implementation_stage:'result_reported',source_eligible:true,has_evaluation:false,has_article:false,source_type:'government'};
     const denied={...base,id:'fixture-unapproved',review_type:'unverified_machine_draft',ready_for_scoring:false};
     const old={...base,id:'fixture-legacy',review_type:'manual_official_source_body',ready_for_scoring:false};
     const changed={...base,id:'fixture-changed-url',reviewed_source_url:'https://example.invalid/other'};
     const processed={...base,id:'fixture-processed',has_evaluation:true};
     const auto:ApprovedRow={...base,id:'fixture-auto',review_type:'auto_source_verified_v1',reviewed_by:null,reviewed_at:null,review_note:null,reviewed_source_url:null,reviewer_active:false,auto_verified_url:base.source_url,auto_verified_at:'2026-11-10T00:00:00Z',auto_gate_version:'nyu-factpack-auto-v0.1',evidence_kind:'official_html_main',fact_summary:'架空の文書公開事実についての明示的な記録です。実際の政策成果を保証するものではありません。',fact_change:'架空の文書公開事実についての明示的な記録です。実際の政策成果を保証するものではありません。',evidence_excerpt:'架空の文書公開事実についての明示的な記録です。実際の政策成果を保証するものではありません。この文章は正式な出典を検査したものではなく架空のテスト用です。'};
     const autoBad={...auto,id:'fixture-auto-bad',auto_verified_url:'https://example.invalid/altered'};
-    const result=[base,denied,old,changed,processed,auto,autoBad].map(approvedOutput);
-    return {ok:true,version:VERSION,mode:'approval_gate_fixtures',provider:'mock',api_calls:0,database_writes:0,publications_created:0,results:result,checks:{approved_pass:result[0].accepted===true,unapproved_blocked:result[1].accepted===false,legacy_blocked:result[2].accepted===false,source_changed_blocked:result[3].accepted===false,duplicate_blocked:result[4].accepted===false,auto_approved_pass:result[5].accepted===true,auto_url_mismatch_blocked:result[6].accepted===false}};
+    const structure={subject:{value:'受賞者',status:'verified',quote:'第17回料理人顕彰制度の受賞者が決定した。'},action:{value:'決定',status:'verified',quote:'第17回料理人顕彰制度の受賞者が決定した。'},stage:'announced',numbers:[],planned_actions:[],source:{url:base.source_url,publisher:base.source_name},ready_for_scoring:true,ready_for_publication:false};
+    const autoV4:ApprovedRow={...auto,id:'fixture-auto-v04',auto_gate_version:'nyu-factpack-auto-v0.4-structured',structured_v04:structure,
+     fact_summary:'受賞者が決定',fact_change:'第17回料理人顕彰制度の受賞者が決定した。',
+     evidence_excerpt:'第17回料理人顕彰制度の受賞者が決定した。'+auto.evidence_excerpt};
+    const autoV4Wrong={...autoV4,id:'fixture-auto-v04-wrong',structured_v04:{...structure,action:{...structure.action,quote:'受賞者が3倍に増加した。'}}};
+    const result=[base,denied,old,changed,processed,auto,autoBad,autoV4,autoV4Wrong].map(approvedOutput);
+    return {ok:true,version:VERSION,mode:'approval_gate_fixtures',provider:'mock',api_calls:0,database_writes:0,publications_created:0,results:result,checks:{approved_pass:result[0].accepted===true,unapproved_blocked:result[1].accepted===false,legacy_blocked:result[2].accepted===false,source_changed_blocked:result[3].accepted===false,duplicate_blocked:result[4].accepted===false,auto_approved_pass:result[5].accepted===true,auto_url_mismatch_blocked:result[6].accepted===false,structured_v04_accepted:result[7].accepted===true,structured_v04_preview_has_no_publish:result[7].article_preview?.can_publish===false,structured_v04_forged_quote_blocked:result[8].accepted===false}};
   };
 async function authorized(req:Request) {
   const token=req.headers.get('x-nyu-token')??'';
@@ -152,7 +195,7 @@ Deno.serve(async (req:Request)=>{
           i.source_summary as summary,i.source_published_at::text as published_at,
           i.metadata->'zencho_prefilter'->>'decision' as prefilter,
           f.event_summary as fact_summary,f.extraction_status as fact_status,f.id::text as fact_pack_id,
-          null::text as category_hint,s.source_type, f.extra_facts->>'verified_source_url' as auto_verified_url,f.extra_facts->>'verified_at' as auto_verified_at,f.extra_facts->>'auto_gate_version' as auto_gate_version, f.extra_facts->>'review_type' as review_type,
+          null::text as category_hint,s.source_type, f.extra_facts->'structured_v04' as structured_v04, f.extra_facts->>'verified_source_url' as auto_verified_url,f.extra_facts->>'verified_at' as auto_verified_at,f.extra_facts->>'auto_gate_version' as auto_gate_version, f.extra_facts->>'review_type' as review_type,
           (f.extra_facts->>'ready_for_scoring')='true' as ready_for_scoring,
           f.extra_facts->>'reviewed_by' as reviewed_by, f.extra_facts->>'reviewed_at' as reviewed_at,
           f.extra_facts->>'review_note' as review_note, f.extra_facts->>'reviewed_source_url' as reviewed_source_url,
