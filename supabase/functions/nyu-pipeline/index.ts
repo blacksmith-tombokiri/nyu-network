@@ -2,7 +2,7 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import postgres from 'npm:postgres@3.4.7';
 const db=postgres(Deno.env.get('SUPABASE_DB_URL')!,{prepare:false,max:2,idle_timeout:8});
 const BASE=Deno.env.get('SUPABASE_URL')!;
-const VERSION='nyu-pipeline-sequential-v0.2';
+const VERSION='nyu-pipeline-sequential-v0.3-ops-status';
 const MAX_FETCH_CONCURRENT=5;
 const timeout=50000;
 function okJson(value:unknown,status=200){return Response.json(value,{status});}
@@ -102,8 +102,15 @@ async function mockStage(token:string,cycle:string,domain:string|null){
 }
 async function status(){
  const rows=await db.unsafe("select cycle_key,mode,stage,domain_filter,started_at,completed_at,fetch_result,prefilter_result,route_result,mock_result,last_error from nyu_private.nyu_pipeline_cycles order by started_at desc limit 6");
- const s=await db.unsafe("select (select count(*) from public.nyu_source_items where metadata->'zencho_prefilter'->>'decision' is null)::int as unprefiltered,(select count(*) from public.nyu_factpack_review_queue where decision='review' and status='pending')::int as human_review,(select count(*) from public.nyu_source_fact_packs where extraction_status='complete' and extra_facts->>'review_type' in ('human_verified_source','auto_source_verified_v1'))::int as verified_packs");
+ const s=await db.unsafe("select (select count(*) from public.nyu_source_items where metadata->'zencho_prefilter'->>'decision' is null)::int as unprefiltered, (select count(*) from public.nyu_source_items i join public.nyu_sources s on s.id=i.source_id where i.metadata->'zencho_prefilter'->>'decision' is null and s.is_active and s.production_enabled and s.rights_tier='green' and s.commercial_use_allowed=true and s.reuse_status='approved' and coalesce(s.takedown_status,'none')='none')::int as unprefiltered_eligible,(select count(*) from public.nyu_factpack_review_queue where decision='review' and status='pending' and archived_at is null and routed_at>=now()-interval '14 days')::int as human_review,(select count(*) from public.nyu_source_fact_packs where extraction_status='complete' and extra_facts->>'review_type' in ('human_verified_source','auto_source_verified_v1'))::int as verified_packs");
+ const cron=await db.unsafe("select j.jobname,j.active,j.schedule,max(d.start_time)::text as last_started_at,max(d.end_time)::text as last_finished_at,(array_agg(d.status order by d.start_time desc) filter(where d.start_time is not null))[1] as last_execution_status from cron.job j left join cron.job_run_details d on d.jobid=j.jobid where j.jobname like 'nyu-pipeline-%' group by j.jobname,j.active,j.schedule order by j.jobname");
+ const feeds=await db.unsafe("select s.domain,max(e.last_success_at)::text last_success_at,count(*) filter(where e.is_enabled and e.acquisition_method='rss')::int active_rss_endpoints from public.nyu_sources s join public.nyu_source_endpoints e on e.source_id=s.id where s.is_active and s.production_enabled and s.rights_tier='green' and s.reuse_status='approved' and s.commercial_use_allowed=true and coalesce(s.takedown_status,'none')='none' group by s.domain order by s.domain");
+ const mock=await db.unsafe("select enabled,api_enabled,circuit_open from nyu_private.nyu_ai_safety_policies where scope='mock' limit 1");
+ const lastScheduled=await db.unsafe("select cycle_key,stage,completed_at,last_error from nyu_private.nyu_pipeline_cycles where mode='scheduled' order by started_at desc limit 1");
  return {ok:true,mode:'preview',version:VERSION,next_cycle:scheduledCycle(),cycles:rows,backlog:s[0],
+  operations:{cron_jobs:cron,source_endpoints:feeds,last_scheduled_cycle:lastScheduled[0]||null,
+   mock_policy:mock[0]||null,cron_history_observed:cron.some((x:any)=>Boolean(x.last_started_at)),
+   schedule_status:cron.every((x:any)=>x.active) ? (cron.every((x:any)=>x.last_started_at)?'observed':'active_not_yet_observed'):'cron_disabled'},
   api_calls:0,publications_created:0};
 }
 Deno.serve(async req=>{
