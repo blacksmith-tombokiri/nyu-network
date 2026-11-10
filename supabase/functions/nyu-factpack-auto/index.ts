@@ -1,7 +1,7 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import postgres from 'npm:postgres@3.4.7';
 const db=postgres(Deno.env.get('SUPABASE_DB_URL')!,{prepare:false,max:1,idle_timeout:5});
-const VERSION='nyu-factpack-auto-v0.3-extract';
+const VERSION='nyu-factpack-auto-v0.4-structured';
 const tidy=(s:string,max=1500)=>s.replace(/\s+/g,' ').trim().slice(0,max);
 const future=/予定|検討|可能性|見込み|目指|期待|計画|予測|試験|実証|調査中|議論|審議|募集|公募|開催します/;
 const outcome=/効果|改善|向上|削減|増加|達成|解消|成功|成果|世界初|最大|初めて/;
@@ -80,6 +80,92 @@ async function fetchBody(s:Item){
  }catch{return {kind:'missing',text:'',note:'fetch_error'};}
 }
 
+
+// V0.4: facts have a literal supporting quote; no generated positive impact is inferred.
+// The fixed action list intentionally does not include '開催', '予定', '実証' or '期待'.
+const confirmedVerbs=['決定','採択','認定','施行','完了','公表','公開','発表','掲載','策定','開始'];
+const scheduledPattern=/予定|見込|目指|期待|検討|計画|予定しています|開催します|開始します|実施します|行います|向けて/;
+type SupportedClaim={value:string|null;quote:string|null;status:'verified'|'unknown'};
+type StructuredFact={
+ subject:SupportedClaim; action:SupportedClaim; stage:'announced'|'started'|'completed'|'result_reported'|'unknown';
+ numbers:Array<{value:string;unit:string;label:string|null;quote:string;role:'confirmed_count'}>;
+ source:{publisher:string;url:string;published_at:string|null;quote:string;method:string};
+ planned_actions:string[];evidence_quotes:string[];warnings:string[];
+ ready_for_scoring:boolean;ready_for_publication:false;
+};
+function quoteOf(raw:string){return tidy(raw,320);}
+function deriveFacts(s:Item,excerpt:string):StructuredFact {
+ const warnings:string[]=[];
+ const parts=excerpt.split(/(?<=[。！？])\s*|(?<=\n)\s*/).map(x=>tidy(x,700)).filter(Boolean);
+ // Prefer complete sentences with direct past/current-tense action.
+ const candidates=parts.filter(x=>confirmedVerbs.some(v=>x.includes(v))&&x.length>=12&&x.length<=700);
+ let selected:string|null=null;let action:string|null=null;
+ for(const sentence of candidates){
+  // Explicit direct statement, not a forecast, suggestion or a ceremony that has not happened.
+  const confirmed=sentence.match(/(?:が|を|は|について|により|も)(決定|採択|認定|施行|完了|公表|公開|発表|掲載|策定)(?:し(?:た|ました)|され(?:た|ました))?|(?:が|を|は)(決定|採択|認定|完了)|(?:を|が)(開始)(?:し(?:た|ました)|され(?:た|ました))/);
+  if(!confirmed)continue;
+  const v=confirmed[1]||confirmed[2]||confirmed[3];
+  const idx=sentence.indexOf(confirmed[0]);
+  if(idx<0||idx>220)continue;
+  const before=sentence.slice(0,idx);
+  if(scheduledPattern.test(before)||scheduledPattern.test(sentence.slice(Math.max(0,idx-20),idx)))continue;
+  // Require actual event statement in the official excerpt, not just a list/heading.
+  // Scope the quote to the actual government announcement, excluding page chrome.
+  const marker=sentence.lastIndexOf('〇',idx);
+  selected=marker>=0?sentence.slice(marker+1).trim():sentence;
+  action=v;break;
+ }
+ if(!selected||!action)warnings.push('confirmed_action_not_explicit');
+ // Actor and grammatical subject are not interchangeable. Keep unknown rather than guessing.
+ // Subject is a short exact noun phrase immediately before the action in a confirmed sentence.
+ let subject:string|null=null;
+ if(selected&&action){
+  // Use only explicitly anchored grammatical patterns, never take the last
+  // comma-separated fragment of a sentence as its subject.
+  if(action==='決定'){
+   const m=selected.match(/(受賞者)(?:（[^）]{1,100}）)?が決定/);
+   if(m)subject=m[1];
+  }
+  if(!subject){
+   const clean=selected.replace(/^.*?[。！？]\s*/,'').replace(/^[〇○●・※\s]+/,'');
+   const m=clean.match(/^([^。！？、]{2,70}?)(?:が|を)(決定|採択|認定|完了|施行|公表|公開|発表|掲載|策定|開始)(?:した|しました|された|されました|。|$)/);
+   if(m&&m[2]===action&&!/日付|予定|計画|将来|見込み/.test(m[1]))subject=m[1];
+  }
+ }
+ if(!subject)warnings.push('subject_not_safely_extractable');
+ const subjectQuote=subject&&selected?selected:null;
+ const nums:Array<{value:string;unit:string;label:string|null;quote:string;role:'confirmed_count'}>=[];
+ if(selected){
+  // Find count expressions only inside the independently confirmed sentence.
+  // Dates, rankings, fiscal years and projections elsewhere are never promoted to evidence.
+  const rx=/([0-9０-９]{1,5})\s*(名|人|件|社|団体|施設|地点|事業者|か所|箇所)/g;
+  let m:RegExpExecArray|null;
+  while((m=rx.exec(selected))!==null&&nums.length<12){
+   const left=selected.slice(Math.max(0,m.index-12),m.index);
+   if(/(?:予定|計画|目標|見込|約|最大|来年度)/.test(left))continue;
+   const context=selected.slice(Math.max(0,m.index-20),m.index);
+   const label=context.match(/(ゴールド賞|シルバー賞|ブロンズ賞|最優秀賞|優秀賞|入賞|受賞|採択|認定)\s*$/)?.[1]||null;
+   nums.push({value:m[1].normalize('NFKC'),unit:m[2],label,quote:selected,role:'confirmed_count'});
+  }
+ }
+ const planned=parts.filter(x=>scheduledPattern.test(x)&&/開催|予定|開始|実施|行い|見込|目指|計画/.test(x)).slice(0,3).map(quoteOf);
+ const dateKey=dateKeys(s.published_at).find(x=>normalized(excerpt).includes(normalized(x)))||null;
+ if(!dateKey)warnings.push('source_date_not_in_evidence');
+ if(!selected||!subject)warnings.push('requires_human_structure_review');
+ const stage=action==='完了'?'completed':action==='開始'?'started':action==='決定'||action==='採択'||action==='認定'||action==='施行'?'announced':'announced';
+ const ready=Boolean(selected&&subject&&dateKey)&&warnings.length===0;
+ return {
+  subject:{value:subject,quote:subjectQuote,status:subject?'verified':'unknown'},
+  action:{value:action,quote:selected,status:action?'verified':'unknown'},
+  stage:action?stage:'unknown',
+  numbers:nums,
+  source:{publisher:s.name,url:s.url,published_at:s.published_at,quote:dateKey||'',method:'official_html_body_v0.4'},
+  planned_actions:planned,
+  evidence_quotes:selected?[selected]:[],
+  warnings,ready_for_scoring:ready,ready_for_publication:false
+ };
+}
+
 const routine=/配信決定|配信開始|アーケードアーカイブス|DLC|アップデート|動画を掲載|ダッシュボードを更新|ページを更新|開催します|検討会|審議します|会議|イベント募集|募集開始|プレゼントキャンペーン/i;
 const possibleValue=/福祉|医療|健康|支援|環境|防災|復興|農|食|保全|保護|研究|教育|表彰|認定|選定|採択|改善|省エネ|自然|資源|生物多様性|技術開発|補助金/i;
 const followupValue=/国民向け行政サービスロードマップ|サービスを開始した事業者及び事例一覧|導入事例を追加|新たに導入|実用化|サービスを開始|制度を開始|社会実装/i;
@@ -115,7 +201,7 @@ Deno.serve(async req=>{
    const item:Item={id:'fixture',title:'令和8年度の行政手続に関する詳細な報告書を公開しました',url:'https://example.invalid/news',domain:'example.invalid',name:'架空省庁',source_type:'government',published_at:'2026-11-10T00:00:00Z',eligible:true,prefilter:'ai_candidate',existing_id:null,already_evaluated:false,already_published:false};
    const body='令和8年度の行政手続に関する詳細な報告書を公開しました。2026年11月10日。令和8年度の行政手続に関する詳細な報告書を公開しました。これは架空の文書公開の検証データです。実在する省庁の発表ではありません。文書の公開を想定した技術的なテストであり、取り組みの実際の成果を保証するものではありません。公開した資料は行政手続の記録を取りまとめた架空の文書です。本試験では記事から確認できる公表行為だけを抽出するのであり、資料に記載された行政サービスの実績が正しいという判断は含みません。';
    const a=check(item,body,'official_main'),b=check({...item,title:'来年度の改善成果を目指す計画を発表しました'},body,'official_main'),c=check(item,body,'feed_summary'),d=check({...item,existing_id:'exists'},body,'official_main');
-   return Response.json({ok:true,mode,version:VERSION,checks:{strict_html:a.ok,ambiguous_blocked:!b.ok,rss_blocked:!c.ok,existing_blocked:!d.ok,substantive_roadmap_to_review:route({...item,title:'国民向け行政サービスロードマップの最新版を公表しました'},['missing_body']).decision==='review',new_adoption_case_to_review:route({...item,title:'サービスを開始した事業者及び事例一覧を更新しました'},['missing_body']).decision==='review',explainer_video_to_skip:route({...item,title:'AIの解説動画を掲載しました'},['missing_body']).decision==='skip',routine_meeting_to_skip:route({...item,title:'環境問題に関する検討会を開催します'},['missing_body']).decision==='skip',routine_game_release_to_skip:route({...item,title:'アーケードアーカイブス新作ゲーム配信決定'},['missing_body']).decision==='skip',inactive_source_to_skip:route({...item,eligible:false,title:'防災庁誕生'},['missing_body']).decision==='skip',manual_policy_to_review:route({...item,prefilter:'manual_review',title:'公営住宅のひとり親控除について政令を閣議決定'},['prefilter_manual']).decision==='review',manual_routine_to_skip:route({...item,prefilter:'manual_review',title:'国土交通省職員の出張について'},['prefilter_manual']).decision==='skip',normalized_title_punctuation:check({...item,title:'令和８年度の行政手続に関する詳細な報告書を公開しました'},body,'official_main').ok,wrong_title_blocked:!check({...item,title:'令和8年度の実施成果を確定しました'},body,'official_main').ok,missing_date_blocked:!check({...item,published_at:'2026-12-12T00:00:00Z'},body,'official_main').ok,unscoped_shell_blocked:!check(item,body,'missing').ok,main_fallback_detected:scopedHtml('<html><div id="contents"><h1>政府発表</h1><p>本文</p></div></html>').note==='named_content_container',missing_scoped_container_blocked:scopedHtml('<html><nav>政府発表</nav><p>本文</p></html>').kind==='missing',japanese_era_date_matched:dateKeys('2026-10-27T07:00:00Z').some(x=>normalized('令和８年10月27日').includes(normalized(x))),wrong_era_date_blocked:!dateKeys('2026-10-27T07:00:00Z').some(x=>normalized('令和８年10月28日').includes(normalized(x))),excerpt_verbatim_punctuation:check(item,body,'official_main').excerpt.includes('。'),false_date_outside_excerpt_blocked:!check(item,body.replace('2026年11月10日','')+' 補足説明 '.repeat(230)+' 2026年11月10日','official_main').ok},fixture_blockers:a.reasons,api_calls:0,db_writes:0,publications_created:0});
+   return Response.json({ok:true,mode,version:VERSION,checks:{strict_html:a.ok,ambiguous_blocked:!b.ok,rss_blocked:!c.ok,existing_blocked:!d.ok,substantive_roadmap_to_review:route({...item,title:'国民向け行政サービスロードマップの最新版を公表しました'},['missing_body']).decision==='review',new_adoption_case_to_review:route({...item,title:'サービスを開始した事業者及び事例一覧を更新しました'},['missing_body']).decision==='review',explainer_video_to_skip:route({...item,title:'AIの解説動画を掲載しました'},['missing_body']).decision==='skip',routine_meeting_to_skip:route({...item,title:'環境問題に関する検討会を開催します'},['missing_body']).decision==='skip',routine_game_release_to_skip:route({...item,title:'アーケードアーカイブス新作ゲーム配信決定'},['missing_body']).decision==='skip',inactive_source_to_skip:route({...item,eligible:false,title:'防災庁誕生'},['missing_body']).decision==='skip',manual_policy_to_review:route({...item,prefilter:'manual_review',title:'公営住宅のひとり親控除について政令を閣議決定'},['prefilter_manual']).decision==='review',manual_routine_to_skip:route({...item,prefilter:'manual_review',title:'国土交通省職員の出張について'},['prefilter_manual']).decision==='skip',normalized_title_punctuation:check({...item,title:'令和８年度の行政手続に関する詳細な報告書を公開しました'},body,'official_main').ok,wrong_title_blocked:!check({...item,title:'令和8年度の実施成果を確定しました'},body,'official_main').ok,missing_date_blocked:!check({...item,published_at:'2026-12-12T00:00:00Z'},body,'official_main').ok,unscoped_shell_blocked:!check(item,body,'missing').ok,main_fallback_detected:scopedHtml('<html><div id="contents"><h1>政府発表</h1><p>本文</p></div></html>').note==='named_content_container',missing_scoped_container_blocked:scopedHtml('<html><nav>政府発表</nav><p>本文</p></html>').kind==='missing',japanese_era_date_matched:dateKeys('2026-10-27T07:00:00Z').some(x=>normalized('令和８年10月27日').includes(normalized(x))),wrong_era_date_blocked:!dateKeys('2026-10-27T07:00:00Z').some(x=>normalized('令和８年10月28日').includes(normalized(x))),excerpt_verbatim_punctuation:check(item,body,'official_main').excerpt.includes('。'),false_date_outside_excerpt_blocked:!check(item,body.replace('2026年11月10日','')+' 補足説明 '.repeat(230)+' 2026年11月10日','official_main').ok,structured_unknown_action_blocked:!deriveFacts(item,'2026年11月10日。資料に関する検討を行います。').ready_for_scoring,structured_award_decision:deriveFacts({...item,title:'料理マスターズ受賞者の決定及び授与式の開催について'},'令和8年11月10日 農林水産省。料理マスターズの受賞者（ゴールド賞1名、シルバー賞3名、ブロンズ賞3名）が決定。授与式は令和8年11月16日に開催します。').action.value==='決定',future_ceremony_not_completed:deriveFacts(item,'令和8年11月10日。授与式は11月16日に開催します。').stage==='unknown',structured_subject_complete:deriveFacts(item,'令和8年11月10日。受賞者（ゴールド賞1名、シルバー賞3名）が決定。').subject.value==='受賞者',unsafe_subject_fragment_blocked:deriveFacts(item,'令和8年11月10日。受賞者（ゴールド賞1名、シルバー賞3名）が決定。').subject.value!=='シルバー賞3名）',structured_award_numbers_labeled:deriveFacts(item,'令和8年11月10日。受賞者（ゴールド賞1名、シルバー賞3名、ブロンズ賞3名）が決定。').numbers.map(x=>x.label).join(',')==='ゴールド賞,シルバー賞,ブロンズ賞',no_guess_subject:deriveFacts(item,'2026年11月10日。決定しました。').subject.value===null},fixture_blockers:a.reasons,api_calls:0,db_writes:0,publications_created:0});
   }
   const domain=typeof args.domain==='string'&&args.domain.length<=200?args.domain:null;
   const itemId=typeof args.source_item_id==='string'&&/^[0-9a-f]{8}-[0-9a-f-]{27,}$/.test(args.source_item_id)?args.source_item_id:null;
@@ -128,21 +214,23 @@ Deno.serve(async req=>{
    const officialSource=s.prefilter==='ai_candidate'&&s.eligible&&['government','public'].includes(s.source_type);
    const fetched=officialSource?await fetchBody(s):{kind:'missing',text:'',note:s.prefilter==='manual_review'?'prefilter_manual_review_no_source_fetch':'not_official_source'};
    const r=s.prefilter==='manual_review'?{ok:false,reasons:['prefilter_manual_review'],excerpt:'',title:tidy(s.title,250)}:check(s,fetched.text,fetched.kind);
-   let status=r.ok?'auto_eligible_preview':'needs_review';
+   const structured=r.ok?deriveFacts(s,r.excerpt):null;
+   const structuredReady=Boolean(r.ok&&structured?.ready_for_scoring);
+   let status=structuredReady?'auto_eligible_preview':'needs_review';
    let routed:null|'review'|'skip'=null;
-   if(mode==='route_queue'&&!r.ok){
-    const classification=route(s,r.reasons);
+   if(mode==='route_queue'&&!structuredReady){
+    const classification=r.ok&&!structuredReady?{decision:'review',reasons:['structured_factpack_needs_human',...(structured?.warnings||[])]}:route(s,r.reasons);
     routed=classification.decision as 'review'|'skip';
     const stored=await db.unsafe("insert into public.nyu_factpack_review_queue (source_item_id,decision,status,reason_codes,source_note,evidence_preview,routing_version) values ($1::uuid,$2,'pending',$3::jsonb,$4,$5,'nyu-review-router-v0.1') on conflict (source_item_id) do nothing returning source_item_id",[s.id,routed,db.json(classification.reasons),fetched.note,tidy(r.excerpt,300)]);
     status=stored.length?(routed==='review'?'queued_for_human':'excluded_from_human_queue'):'previous_routing_preserved';
    }
-   if((mode==='auto_save'||mode==='route_queue')&&r.ok){
-    const extra={review_type:'auto_source_verified_v1',verification_method:'exact_official_html_extract_v1',verified_at:new Date().toISOString(),verified_source_url:s.url,evidence_kind:'official_html_main',evidence_excerpt:r.excerpt,ready_for_scoring:true,ready_for_publication:false,source_date:s.published_at,auto_gate_version:VERSION};
+   if((mode==='auto_save'||mode==='route_queue')&&structuredReady&&structured){
+    const extra={review_type:'auto_source_verified_v1',verification_method:'official_html_structured_factpack_v0.4',verified_at:new Date().toISOString(),verified_source_url:s.url,evidence_kind:'official_html_main',evidence_excerpt:r.excerpt,ready_for_scoring:structured.ready_for_scoring,ready_for_publication:false,source_date:s.published_at,auto_gate_version:VERSION,structured_v04:structured};
     const caveats=['出典元で確認できる発表・公開の事実のみ。実際の効果・成果や独立した真偽の保証ではありません。'];
-    const n=await db.unsafe("insert into public.nyu_source_fact_packs(source_item_id,schema_version,extraction_status,event_summary,actors,when_text,where_text,target_audience,key_numbers,change_summary,implementation_stage,caveats,extra_facts,source_language,source_content_hash,extraction_model,prompt_version,extracted_at) values($1::uuid,'auto-0.1','complete',$2,$3::jsonb,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10::jsonb,$11::jsonb,$12,$13,$14,$15,now()) on conflict(source_item_id) do nothing returning id",[s.id,r.title,db.json([s.name]),null,null,db.json([]),db.json([]),r.title,'announced',db.json(caveats),db.json(extra),/[^\x00-\x7f]/.test(r.title)?'ja':'en',await digest(r.excerpt),'deterministic-source-extract',VERSION]);
+    const n=await db.unsafe("insert into public.nyu_source_fact_packs(source_item_id,schema_version,extraction_status,event_summary,actors,when_text,where_text,target_audience,key_numbers,change_summary,implementation_stage,caveats,extra_facts,source_language,source_content_hash,extraction_model,prompt_version,extracted_at) values($1::uuid,'auto-0.4','complete',$2,$3::jsonb,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10::jsonb,$11::jsonb,$12,$13,$14,$15,now()) on conflict(source_item_id) do nothing returning id",[s.id,structured.subject.value+'が'+structured.action.value,db.json([]),s.published_at,null,db.json([]),db.json(structured.numbers),structured.action.quote,structured.stage,db.json(caveats),db.json(extra),/[^\x00-\x7f]/.test(r.title)?'ja':'en',await digest(r.excerpt),'deterministic-source-extract',VERSION]);
     if(n.length){saved++;status='auto_completed';}else status='existing_preserved';
    }
-   results.push({source_item_id:s.id,status,route_decision:routed,auto_eligible:r.ok,reasons:r.reasons,fetch_note:fetched.note,evidence_preview:r.ok?r.excerpt.slice(0,220):undefined});
+   results.push({source_item_id:s.id,status,route_decision:routed,auto_eligible:structuredReady,html_gate_ok:r.ok,structured:structured||undefined,reasons:[...r.reasons,...(structured?.warnings||[])],fetch_note:fetched.note,evidence_preview:r.ok?r.excerpt.slice(0,220):undefined});
   }
   return Response.json({ok:true,mode,version:VERSION,processed:rows.length,auto_eligible:results.filter(x=>x.auto_eligible).length,db_writes:saved,queue_added:results.filter(x=>x.status==='queued_for_human').length,queue_skipped:results.filter(x=>x.status==='excluded_from_human_queue').length,api_calls:0,publications_created:0,results});
  }catch(e){console.error(e);return Response.json({ok:false,error:'auto_factpack_failed'},{status:500});}
