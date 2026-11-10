@@ -15,9 +15,9 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f5f7f4;padding:14px;
 button,select{border:1px solid #aebfb2;padding:8px 10px;border-radius:7px;background:white;font:inherit;cursor:pointer}details{margin-top:14px}summary{cursor:pointer}
 .notice{padding:14px;background:#fcf4e4;border-left:4px solid #c78b30;border-radius:5px}.muted{color:#647169}
 </style></head>
-<body><header><a href="index.html?brand=zen">← 編集デスクへ</a><h1>APIなし記事生成｜25件比較</h1>
-<p class="small">公式記事そのものではありません。編集検証用の非公開サンプルです。</p></header>
-<main><div class="notice"><strong>試験専用・公開不可</strong><p>従来の善兆スコアとは無関係の機械的な診断値です。元記事の全文検証を経ていないサンプルは再確認が必要です。既存記事との比較用サンプルも公開や再登録には使いません。</p></div>
+<body><header><a href="index.html?brand=zen">← 編集デスクへ</a><h1>GPT編集 vs APIなし｜25件比較</h1>
+<p class="small">公式記事そのものではありません。AIなし定型文・GPT編集稿・既存記事を比較する非公開実験です。</p></header>
+<main><div class="notice"><strong>試験専用・公開不可</strong><p>今回のGPT編集原稿も試作であり、正式な善兆スコア・掲載判断ではありません。25件中24件は元記事の厳格な再照合が未実施です。文章が自然でも事実が正しいとは限りません。公開・再登録は禁止しています。</p></div>
 <div id="status" class="card" role="status">管理者セッションを確認しています…</div>
 <div id="app" hidden><div class="summary" id="metrics"></div><div class="card"><label>対象 <select id="kind"><option value="all">25件すべて</option><option value="new">未掲載の記事案</option><option value="benchmark">既存記事との比較</option></select></label>
 <label style="margin-left:12px">根拠 <select id="source"><option value="all">すべて</option><option value="official_confirmed">公式根拠照合済み</option><option value="requires_recheck">再確認が必要</option></select></label></div>
@@ -46,7 +46,7 @@ button,select{border:1px solid #aebfb2;padding:8px 10px;border-radius:7px;backgr
    const newOnly=all.filter(x=>!x.is_existing_article_benchmark).length, verified=all.filter(x=>x.source_verification==='official_confirmed').length;
    const changed=all.filter(x=>x.draft_title!==x.source_title).length,short=all.filter(x=>x.draft_body.length<80).length;
    document.querySelector('#metrics').innerHTML=[
-    ['検証サンプル',all.length+'件'],['新規候補',newOnly+'件'],['比較用既存記事',all.length-newOnly+'件'],['照合済み原文',verified+'件'],['タイトル独自編集',changed+'件'],['80文字未満',short+'件']
+    ['比較サンプル',all.length+'件'],['GPT記事を作成',all.filter(x=>x.gpt_draft_body).length+'件'],['掲載検討',all.filter(x=>x.gpt_editorial_decision==='consider').length+'件'],['保留・見送り',all.filter(x=>x.gpt_editorial_decision!=='consider').length+'件'],['照合済み原文',verified+'件'],['既存記事との比較',all.length-newOnly+'件']
    ].map(x=>'<div class="metric"><span class="small">'+x[0]+'</span><strong>'+x[1]+'</strong></div>').join('');
    function render(){
     const kind=document.querySelector('#kind').value,source=document.querySelector('#source').value;
@@ -55,8 +55,10 @@ button,select{border:1px solid #aebfb2;padding:8px 10px;border-radius:7px;backgr
       const date=x.source_published_at?new Date(x.source_published_at).toLocaleDateString('ja-JP',{timeZone:'Asia/Tokyo'}):'日付不明';
       const verified=x.source_verification==='official_confirmed';
       return '<article class="card"><div><span class="tag '+(verified?'ver':'warn')+'">'+(verified?'公式本文照合済み':'根拠の再確認が必要')+'</span><span class="tag">'+(x.is_existing_article_benchmark?'既存記事との比較':'未掲載試験案')+'</span><span class="tag">公開不可</span></div>'
-      +'<h2>'+esc(x.draft_title)+'</h2><p class="small">'+esc(x.source_name)+' ｜ '+esc(date)+' ｜ 実施段階 '+esc(x.implementation_stage)+' ｜ 機械的診断値 '+esc(x.quality_score)+'/100（善兆スコアではありません）</p>'
-      +'<div class="grid"><section><strong>AIなし生成の短い記事案</strong><pre>'+esc(x.draft_body)+'</pre></section>'
+      +'<h2>'+esc(x.gpt_draft_title||x.draft_title)+'</h2><p class="small">'+esc(x.source_name)+' ｜ '+esc(date)+' ｜ 実施段階 '+esc(x.implementation_stage)+' ｜ 仮編集判断 '+esc(({consider:'掲載検討',hold:'保留',skip:'見送り'})[x.gpt_editorial_decision]||'未評価')+'</p>'
+      +'<div class="grid"><section><strong>GPT編集版（未検証・非公開）</strong><p><strong>'+esc(x.gpt_draft_title||'未作成')+'</strong></p><pre>'+esc(x.gpt_draft_body||'未作成')+'</pre><p class="small"><strong>GPTの仮編集理由：</strong>'+esc(x.gpt_editorial_reason||'なし')+'</p></section>'
+      +'<section><strong>AIなし定型文版</strong><p><strong>'+esc(x.draft_title)+'</strong></p><pre>'+esc(x.draft_body)+'</pre><p class="small">診断値：'+esc(x.quality_score)+'/100（善兆点数ではありません）</p></section></div>'
+      +'<div class="grid"><section><strong>元のニュース</strong><p><a href="'+esc(x.source_url)+'" target="_blank" rel="noopener noreferrer">'+esc(x.source_title)+'</a></p></section>'
       +'<section><strong>元のニュース</strong><p><a href="'+esc(x.source_url)+'" target="_blank" rel="noopener noreferrer">'+esc(x.source_title)+'</a></p>'
       +(x.is_existing_article_benchmark?'<p><strong>既存記事タイトル</strong><br>'+esc(x.existing_article_title||'なし')+'</p><p><strong>既存記事の要約</strong><br>'+esc(x.existing_article_summary||'なし')+'</p>':'<p class="small">まだサイト記事として存在しないものを試作しています。</p>')
       +'</section></div><details><summary>注意事項・機械的チェック</summary><p class="small">'+(x.warnings||[]).map(esc).join(' ／ ')+'</p><pre>'+esc(JSON.stringify(x.quality_checks,null,2))+'</pre></details></article>';
