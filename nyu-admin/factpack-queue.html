@@ -1,7 +1,7 @@
 <!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>記事の例外確認｜ぜんにゅー</title><link rel="stylesheet" href="admin.css?v=20261110-reviewqueue">
 <style>.review-banner{padding:16px 20px;margin:16px 0;font-size:13px;line-height:1.8}.review-card{border:1px solid #d8e0d8;background:#fff;border-radius:14px;padding:22px;margin:16px 0}.review-card h2{font-size:18px;line-height:1.55;margin:12px 0}.review-card-head{display:flex;gap:10px;align-items:center}.tag{font-size:12px;border-radius:99px;background:#fff0cb;padding:5px 10px;font-weight:700}.reasons{padding:13px;background:#f3f5f3;border-radius:9px;margin:14px 0;font-size:13px}.reasons p{margin:5px 0;line-height:1.7}.review-card form{display:grid;gap:12px}.review-card label{display:grid;gap:6px;font-size:13px;font-weight:700}.review-card textarea{font:inherit;line-height:1.65;border:1px solid #c7d2c8;border-radius:8px;width:100%;padding:10px}.review-actions{display:flex;flex-wrap:wrap;gap:10px}.feedback{min-height:18px;font-size:13px;color:#325e46}.review-card button:disabled{opacity:.5}.back{display:inline-block;text-decoration:none}</style></head><body>
 <header class="topbar"><div><p class="eyebrow">NYUNET / EXCEPTION QUEUE</p><h1>記事の例外確認</h1><p class="sub">自動で確認できず、編集上の検討余地がある記事だけ表示します。</p></div><div class="top-actions"><a href="./?brand=zen" class="ghost back">編集デスクへ戻る</a><a href="factpacks.html" class="ghost back">ファクトパック確認へ</a></div></header>
-<main class="shell"><section class="panel review-banner"><strong>全件承認は不要です。</strong><p>確実な事実が確認できない場合は無理に承認せず、理由を記録して除外できます。下書き作成後も事実確認が必要で、ここから記事が公開されることはありません。</p></section>
+<main class="shell"><section class="panel review-banner"><strong>全件承認は不要です。</strong><p>確実な事実が確認できない場合は無理に承認せず、理由を記録して除外できます。下書き作成後も事実確認が必要で、ここから記事が公開されることはありません。要確認は振り分けから14日間だけ表示し、未処理のまま90日を過ぎると詳細を整理します。</p></section>
 <p id="message" role="status">ログイン状態を確認しています…</p><section id="queue-app" hidden><div class="panel" style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px"><strong>確認待ち：<span id="queue-count">0</span>件</strong><button class="ghost" id="reload" type="button">最新を取得</button></div><div id="cards"></div></section></main>
 <script src="../zennyu/config.js?v=20261031-3"></script><script>(function reviewQueueApp(){
   const cfg=window.ZENNEWS_CONFIG, $=s=>document.querySelector(s);
@@ -49,7 +49,8 @@
   }
   async function load(){
     $('#message').textContent='確認待ち記事を読み込み中…';
-    const rows=await api('nyu_factpack_review_queue?select=source_item_id,decision,status,reason_codes,source_note,routed_at,nyu_source_items(original_title,source_url,source_summary,source_published_at,nyu_sources(name,domain))&decision=eq.review&status=eq.pending&order=routed_at.desc&limit=100');
+    const cutoff=new Date(Date.now()-14*86400000).toISOString();
+    const rows=await api('nyu_factpack_review_queue?select=source_item_id,decision,status,reason_codes,source_note,routed_at,nyu_source_items(original_title,source_url,source_summary,source_published_at,nyu_sources(name,domain))&decision=eq.review&status=eq.pending&archived_at=is.null&routed_at=gte.'+encodeURIComponent(cutoff)+'&order=routed_at.desc&limit=100');
     render(rows);$('#message').textContent='確認待ち '+rows.length+'件。判断が難しい記事だけ表示しています。';
   }
   async function submit(card,op){
