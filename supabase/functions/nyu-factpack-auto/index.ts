@@ -48,13 +48,24 @@ async function fetchBody(s:Item){
   return {kind:'official_main',text:htmlText(main),note:'original_html_extracted'};
  }catch{return {kind:'missing',text:'',note:'fetch_error'};}
 }
+
+const routine=/配信決定|配信開始|ゲーム|アーケード|DLC|アップデート|動画を掲載|ダッシュボードを更新|ページを更新|開催します|検討会|審議します|会議|イベント募集|募集開始|プレゼントキャンペーン/i;
+const possibleValue=/福祉|医療|健康|支援|環境|防災|復興|農|食|保全|保護|研究|教育|表彰|認定|選定|採択|改善|省エネ|自然|資源|生物多様性|技術開発|補助金/i;
+function route(s:Item, reasons:string[]) {
+ if(s.existing_id||s.already_evaluated||s.already_published) return {decision:'skip',reasons:['existing_record']};
+ if(!s.eligible||s.prefilter!=='ai_candidate')return {decision:'skip',reasons:['not_eligible_or_not_candidate']};
+ // Focus the human editorial queue on possibly newsworthy stories, never routine updates.
+ if(routine.test(s.title)&&!possibleValue.test(s.title))return {decision:'skip',reasons:['routine_or_offtopic']};
+ if(!possibleValue.test(s.title))return {decision:'skip',reasons:['no_editorial_value_signal']};
+ return {decision:'review',reasons};
+}
 async function auth(req:Request){const tok=req.headers.get('x-nyu-token')||'';if(!tok)return false;const v=await db.unsafe("select decrypted_secret from vault.decrypted_secrets where name='nyu_fetch_token' limit 1");if(v.length!==1)return false;const a=new TextEncoder().encode(tok),b=new TextEncoder().encode(v[0].decrypted_secret);if(a.length!==b.length)return false;let diff=0;for(let i=0;i<a.length;i++)diff|=a[i]^b[i];return diff===0;}
 Deno.serve(async req=>{
  if(req.method!=='POST')return Response.json({ok:false,error:'POST_only'},{status:405});
  try{
   if(!await auth(req))return Response.json({ok:false,error:'unauthorized'},{status:401});
   const args=await req.json().catch(()=>({})),mode=args.mode||'preview';
-  if(!['fixtures','preview','auto_save'].includes(mode))return Response.json({ok:false,error:'invalid_mode'},{status:400});
+  if(!['fixtures','preview','auto_save','route_queue'].includes(mode))return Response.json({ok:false,error:'invalid_mode'},{status:400});
   if(args.publish||args.live||args.provider==='openai')return Response.json({ok:false,error:'live_actions_disabled'},{status:409});
   if(mode==='fixtures'){
    const item:Item={id:'fixture',title:'令和8年度の行政手続に関する詳細な報告書を公開しました',url:'https://example.invalid/news',domain:'example.invalid',name:'架空省庁',source_type:'government',published_at:'2026-11-10T00:00:00Z',eligible:true,prefilter:'ai_candidate',existing_id:null,already_evaluated:false,already_published:false};
@@ -65,22 +76,30 @@ Deno.serve(async req=>{
   const domain=typeof args.domain==='string'&&args.domain.length<=200?args.domain:null;
   const itemId=typeof args.source_item_id==='string'&&/^[0-9a-f]{8}-[0-9a-f-]{27,}$/.test(args.source_item_id)?args.source_item_id:null;
   if(args.source_item_id&&!itemId)return Response.json({ok:false,error:'invalid_item_id'},{status:400});
-  const limit=Math.max(1,Math.min(5,Number.isInteger(args.limit)?args.limit:2));
-  const rows=await db.unsafe("select i.id::text id,i.original_title title,i.source_url url,s.domain,s.name,s.source_type,i.source_published_at::text published_at,(s.is_active and s.rights_tier='green' and s.production_enabled and s.commercial_use_allowed=true and s.reuse_status='approved' and coalesce(s.takedown_status,'none')='none') eligible,i.metadata->'zencho_prefilter'->>'decision' prefilter,f.id::text existing_id,exists(select 1 from public.nyu_evaluations e where e.source_item_id=i.id) already_evaluated,exists(select 1 from public.nyu_article_sources a where a.source_item_id=i.id) already_published from public.nyu_source_items i join public.nyu_sources s on s.id=i.source_id left join public.nyu_source_fact_packs f on f.source_item_id=i.id where s.rights_tier='green' and s.is_active and s.reuse_status='approved' and ($1::text is null or s.domain=$1) and ($2::uuid is null or i.id=$2::uuid) and i.metadata->'zencho_prefilter'->>'decision'='ai_candidate' order by i.source_published_at desc nulls last,i.discovered_at desc limit $3",[domain,itemId,limit]) as Item[];
+  const limit=Math.max(1,Math.min(mode==='route_queue'?10:5,Number.isInteger(args.limit)?args.limit:2));
+  const rows=await db.unsafe("select i.id::text id,i.original_title title,i.source_url url,s.domain,s.name,s.source_type,i.source_published_at::text published_at,(s.is_active and s.rights_tier='green' and s.production_enabled and s.commercial_use_allowed=true and s.reuse_status='approved' and coalesce(s.takedown_status,'none')='none') eligible,i.metadata->'zencho_prefilter'->>'decision' prefilter,f.id::text existing_id,exists(select 1 from public.nyu_evaluations e where e.source_item_id=i.id) already_evaluated,exists(select 1 from public.nyu_article_sources a where a.source_item_id=i.id) already_published from public.nyu_source_items i join public.nyu_sources s on s.id=i.source_id left join public.nyu_source_fact_packs f on f.source_item_id=i.id where s.rights_tier='green' and s.is_active and s.reuse_status='approved' and ($1::text is null or s.domain=$1) and ($2::uuid is null or i.id=$2::uuid) and i.metadata->'zencho_prefilter'->>'decision'='ai_candidate' and ($4::boolean=false or (f.id is null and not exists(select 1 from public.nyu_factpack_review_queue q where q.source_item_id=i.id) and not exists(select 1 from public.nyu_evaluations ev where ev.source_item_id=i.id) and not exists(select 1 from public.nyu_article_sources ar where ar.source_item_id=i.id))) order by i.source_published_at desc nulls last,i.discovered_at desc limit $3",[domain,itemId,limit,mode==='route_queue']) as Item[];
   let saved=0;const results:any[]=[];
   for(const s of rows){
    if(s.existing_id){results.push({source_item_id:s.id,status:'existing_preserved'});continue;}
-   if(!s.eligible||!['government','public'].includes(s.source_type)){results.push({source_item_id:s.id,status:'needs_review',reasons:['not_eligible_source']});continue;}
-   const fetched=await fetchBody(s),r=check(s,fetched.text,fetched.kind);
+   const officialSource=s.eligible&&['government','public'].includes(s.source_type);
+   const fetched=officialSource?await fetchBody(s):{kind:'missing',text:'',note:'not_official_source'};
+   const r=check(s,fetched.text,fetched.kind);
    let status=r.ok?'auto_eligible_preview':'needs_review';
-   if(mode==='auto_save'&&r.ok){
+   let routed:null|'review'|'skip'=null;
+   if(mode==='route_queue'&&!r.ok){
+    const classification=route(s,r.reasons);
+    routed=classification.decision as 'review'|'skip';
+    const stored=await db.unsafe("insert into public.nyu_factpack_review_queue (source_item_id,decision,status,reason_codes,source_note,evidence_preview,routing_version) values ($1::uuid,$2,'pending',$3::jsonb,$4,$5,'nyu-review-router-v0.1') on conflict (source_item_id) do nothing returning source_item_id",[s.id,routed,db.json(classification.reasons),fetched.note,tidy(r.excerpt,300)]);
+    status=stored.length?(routed==='review'?'queued_for_human':'excluded_from_human_queue'):'previous_routing_preserved';
+   }
+   if((mode==='auto_save'||mode==='route_queue')&&r.ok){
     const extra={review_type:'auto_source_verified_v1',verification_method:'exact_official_html_extract_v1',verified_at:new Date().toISOString(),verified_source_url:s.url,evidence_kind:'official_html_main',evidence_excerpt:r.excerpt,ready_for_scoring:true,ready_for_publication:false,source_date:s.published_at,auto_gate_version:VERSION};
     const caveats=['出典元で確認できる発表・公開の事実のみ。実際の効果・成果や独立した真偽の保証ではありません。'];
     const n=await db.unsafe("insert into public.nyu_source_fact_packs(source_item_id,schema_version,extraction_status,event_summary,actors,when_text,where_text,target_audience,key_numbers,change_summary,implementation_stage,caveats,extra_facts,source_language,source_content_hash,extraction_model,prompt_version,extracted_at) values($1::uuid,'auto-0.1','complete',$2,$3::jsonb,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10::jsonb,$11::jsonb,$12,$13,$14,$15,now()) on conflict(source_item_id) do nothing returning id",[s.id,r.title,JSON.stringify([s.name]),null,null,JSON.stringify([]),JSON.stringify([]),r.title,'announced',JSON.stringify(caveats),JSON.stringify(extra),/[^\x00-\x7f]/.test(r.title)?'ja':'en',await digest(r.excerpt),'deterministic-source-extract',VERSION]);
     if(n.length){saved++;status='auto_completed';}else status='existing_preserved';
    }
-   results.push({source_item_id:s.id,status,auto_eligible:r.ok,reasons:r.reasons,fetch_note:fetched.note,evidence_preview:r.ok?r.excerpt.slice(0,220):undefined});
+   results.push({source_item_id:s.id,status,route_decision:routed,auto_eligible:r.ok,reasons:r.reasons,fetch_note:fetched.note,evidence_preview:r.ok?r.excerpt.slice(0,220):undefined});
   }
-  return Response.json({ok:true,mode,version:VERSION,processed:rows.length,auto_eligible:results.filter(x=>x.auto_eligible).length,db_writes:saved,api_calls:0,publications_created:0,results});
+  return Response.json({ok:true,mode,version:VERSION,processed:rows.length,auto_eligible:results.filter(x=>x.auto_eligible).length,db_writes:saved,queue_added:results.filter(x=>x.status==='queued_for_human').length,queue_skipped:results.filter(x=>x.status==='excluded_from_human_queue').length,api_calls:0,publications_created:0,results});
  }catch(e){console.error(e);return Response.json({ok:false,error:'auto_factpack_failed'},{status:500});}
 });
