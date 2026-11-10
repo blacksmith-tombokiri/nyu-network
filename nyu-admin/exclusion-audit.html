@@ -1,0 +1,152 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>除外記事の監査 | ぜんにゅー</title><link rel="stylesheet" href="admin.css?v=20261110-audit"><style>.audit-panel{padding:16px 20px;margin:15px 0}.audit-panel p{line-height:1.7;color:#56645c;font-size:13px}.audit-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:15px 0}.audit-number{border:1px solid #d8dfd8;border-radius:12px;background:#fff;padding:17px}.audit-number strong{display:block;font-size:25px}.audit-number span{font-size:12px;color:#59695c}.audit-layout{display:grid;grid-template-columns:260px 1fr;gap:15px}.audit-filters{padding:16px;align-self:start}.audit-filters label,.audit-restore label{display:grid;gap:6px;font-size:13px;font-weight:700;margin:10px 0}.audit-filters select,.audit-filters input,.audit-restore textarea{width:100%;padding:9px;border-radius:8px;border:1px solid #bacbbb;background:#fff;font:inherit}.audit-filters button{margin-top:8px}.stat-line{display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:6px 0;border-bottom:1px solid #e6ece7}.audit-article{background:#fff;border:1px solid #dce4dd;border-radius:12px;padding:18px;margin-bottom:13px}.audit-article h3{font-size:16px;line-height:1.6;margin:12px 0}.audit-meta{display:flex;gap:7px;flex-wrap:wrap;align-items:center;font-size:12px;color:#52655a}.audit-pill{background:#e7ebea;color:#45544e;border-radius:100px;padding:4px 8px;font-weight:700}.audit-pill.good{background:#e7f2e9;color:#28633c}.audit-pill.muted{background:#f1eeee;color:#805b59}.audit-reason{font-size:13px;color:#57665d}.audit-restore{padding-top:13px;margin-top:13px;border-top:1px solid #e5ebe6}.audit-restore button:disabled{opacity:.45;cursor:not-allowed}.audit-feedback{font-size:12px;color:#38644a;min-height:18px}.audit-pagination{display:flex;gap:10px;align-items:center;justify-content:space-between;margin:16px 0;flex-wrap:wrap}.audit-pagination .controls{display:flex;gap:8px}.back-link{display:inline-block;text-decoration:none}@media(max-width:800px){.audit-layout{grid-template-columns:1fr}.audit-summary{grid-template-columns:repeat(3,minmax(0,1fr))}.audit-number{padding:12px}.audit-number strong{font-size:21px}}</style></head><body>
+<header class="topbar"><div><p class="eyebrow">NYUNET / AUDIT</p><h1>除外記事の監査</h1><p class="sub">大量記事は集計から。必要な記事だけ検索して確認待ちへ戻します。</p></div><div class="top-actions"><a class="ghost back-link" href="./?brand=zen">編集デスクへ戻る</a><a class="ghost back-link" href="factpack-queue.html">例外確認キュー</a></div></header>
+<main class="shell"><section class="panel audit-panel"><strong>記事を復活させても公開されません</strong><p>「一次除外」は見出しと要約に基づく事前フィルター、「二次除外」は自動出典確認後の振り分けです。理由を添えた記事だけ確認待ちに移します。情報源の利用許可がない記事や処理済み記事は復活できません。</p></section>
+<p id="notice" role="status">管理者認証を確認しています…</p>
+<section id="app" hidden>
+<div class="audit-summary"><div class="audit-number"><span>除外記事総数</span><strong id="stat-all">0</strong></div><div class="audit-number"><span>一次除外</span><strong id="stat-prefilter">0</strong></div><div class="audit-number"><span>二次除外</span><strong id="stat-router">0</strong></div></div>
+<div class="audit-layout"><aside class="panel audit-filters"><strong>絞り込み</strong>
+<label>除外段階<select id="stage"><option value="router">二次除外（初期表示）</option><option value="prefilter">一次除外</option><option value="all">両方</option></select></label>
+<label>情報源<select id="domain"><option value="">すべて</option></select></label>
+<label>除外理由<select id="reason"><option value="">すべて</option></select></label>
+<label>タイトル検索<input id="keyword" maxlength="100" placeholder="例：アーカイブ、医療"></label>
+<button id="apply" class="primary" type="button">検索する</button><button id="clear" class="ghost" type="button">条件をリセット</button>
+<hr><strong>情報源別除外件数</strong><div id="source-summary"></div>
+</aside>
+<div><div class="audit-pagination"><strong id="page-meta">検索中</strong><div class="controls"><button id="prev" class="ghost" type="button">前へ</button><button id="next" class="ghost" type="button">次へ</button></div></div><div id="matches"></div></div>
+</div>
+</section></main>
+<script src="../zennyu/config.js?v=20261031-3"></script><script>(function exclusionAuditApp(){
+  const cfg=window.ZENNEWS_CONFIG;
+  const $=s=>document.querySelector(s);
+  const esc=(v='')=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const key='nyu_admin_session_v1';
+  let session=null,page=1,lastResult=null;
+  const endpoint=cfg?.supabaseUrl+'/auth/v1',rest=cfg?.supabaseUrl+'/rest/v1';
+  const friendly={
+    routine_or_offtopic:'通常の配信・商品案内',
+    routine_without_new_outcome:'具体的な成果のない定型情報',
+    no_editorial_value_signal:'掲載価値の兆候を未検出',
+    not_eligible_or_not_candidate:'利用条件・候補条件を満たさない',
+    game_release_promotion_even_if_social_keyword:'一般的なゲーム発売・配信情報',
+    routine_game_or_commercial_news:'通常のゲーム・商業ニュース',
+    administrative_announcement_without_outcome:'成果のない行政案内',
+    administrative_list_or_recruitment:'行政一覧・採用案内',
+    manual_reopened_from_prefilter_skip:'人の判断で復活（一次除外）',
+    manual_reopened_from_router_skip:'人の判断で復活（二次除外）'
+  };
+  if(!cfg?.supabaseUrl||!cfg?.publishableKey){$('#notice').textContent='接続設定がありません';return;}
+  const state={stage:'router',domain:'',reason:'',query:''};
+  async function valid(){
+    if(!session)return false;
+    if(session.expires_at>Date.now())return true;
+    const res=await fetch(endpoint+'/token?grant_type=refresh_token',{method:'POST',headers:{apikey:cfg.publishableKey,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:session.refresh_token})});
+    if(!res.ok)return false;
+    const d=await res.json();session={access_token:d.access_token,refresh_token:d.refresh_token,expires_at:Date.now()+Math.max(0,(Number(d.expires_in||3600)-30)*1000),user:d.user};
+    localStorage.setItem(key,JSON.stringify(session));return true;
+  }
+  async function rpc(action,payload,allowRetry=true){
+    if(!await valid())throw Error('編集デスクでログインしてください');
+    const r=await fetch(rest+'/rpc/'+action,{method:'POST',headers:{apikey:cfg.publishableKey,Authorization:'Bearer '+session.access_token,'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    if(r.status===401&&allowRetry){session.expires_at=0;if(await valid())return rpc(action,payload,false);}
+    const result=await r.json().catch(()=>({}));
+    if(!r.ok)throw Error(result.message||result.error||'HTTP '+r.status);
+    return result;
+  }
+  const params=()=>({p_stage:state.stage,p_domain:state.domain||null,p_reason:state.reason||null,p_query:state.query||null,p_page:page,p_limit:20});
+  function formatReason(s){return friendly[s]||s||'未分類';}
+  function validUrl(s){try{const u=new URL(s);return (u.protocol==='http:'||u.protocol==='https:')?u.href:''}catch{return ''}}
+  function statStage(result){
+    const list=result.by_stage||[];
+    return Object.fromEntries(list.map(x=>[x.stage,x.count]));
+  }
+  function makeDomainOptions(data){
+    const dom=$('#domain'),old=state.domain;
+    dom.innerHTML='<option value="">すべての情報源</option>'+(data.by_source||[]).map(x=>'<option value="'+esc(x.domain)+'">'+esc(x.domain)+' ('+x.count+')</option>').join('');
+    dom.value=old;
+  }
+  function renderStats(data){
+    const totals=statStage(data);
+    $('#stat-all').textContent=data.total.toLocaleString('ja-JP');
+    $('#stat-prefilter').textContent=Number(totals.prefilter||0).toLocaleString('ja-JP');
+    $('#stat-router').textContent=Number(totals.router||0).toLocaleString('ja-JP');
+    const domains=(data.by_source||[]).slice(0,8);
+    $('#source-summary').innerHTML=domains.map(x=>'<div class="stat-line"><span>'+esc(x.domain)+'</span><strong>'+x.count.toLocaleString('ja-JP')+'件</strong></div>').join('');
+  }
+  function renderReasons(data){
+    const list=data.by_reason||[],old=state.reason;
+    const target=$('#reason');
+    target.innerHTML='<option value="">すべての除外理由</option>'+list.map(x=>'<option value="'+esc(x.reason)+'">'+esc(formatReason(x.reason))+' ('+x.count+')</option>').join('');
+    if(list.some(x=>x.reason===old))target.value=old;
+    else {state.reason='';target.value='';}
+  }
+  function render(data){
+    lastResult=data;
+    $('#page-meta').textContent='検索結果 '+data.total.toLocaleString('ja-JP')+'件 ／ '+page+'ページ目（各20件まで）';
+    $('#prev').disabled=page<=1;
+    $('#next').disabled=page>=Number(data.pages||0);
+    $('#matches').innerHTML=(data.rows||[]).length?data.rows.map(x=>{
+      const url=validUrl(x.source_url);
+      const stage=x.stage==='prefilter'?'一次除外':'二次除外';
+      const eligible=x.source_eligible;
+      const badge=eligible?'<span class="audit-pill good">復活可能な情報源</span>':'<span class="audit-pill muted">情報源の利用条件により復活不可</span>';
+      return `<article class="audit-article" data-id="${esc(x.source_item_id)}" data-stage="${esc(x.stage)}">
+        <div class="audit-meta"><span class="audit-pill">${stage}</span>${badge}<span>${esc(x.domain)}</span></div>
+        <h3>${esc(x.title||'無題')}</h3>
+        <p class="audit-reason">除外理由：<strong>${esc(formatReason(x.reason))}</strong></p>
+        ${url?`<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">元記事を開く</a>`:''}
+        <div class="audit-restore">
+          <label>復活理由（8文字以上）<textarea rows="2" placeholder="掲載候補として見直す具体的な根拠を書いてください" ${eligible?'':'disabled'}></textarea></label>
+          <button type="button" class="primary" ${eligible?'':'disabled'}>人間の確認待ちへ戻す</button>
+          <p class="audit-feedback" role="status"></p>
+        </div>
+      </article>`;
+    }).join(''):'<div class="panel" style="padding:20px">条件に一致する除外記事はありません。</div>';
+    $('#matches').querySelectorAll('.audit-article').forEach(el=>{
+      el.querySelector('button').addEventListener('click',()=>restore(el));
+    });
+  }
+  async function restore(card){
+    const reason=card.querySelector('textarea').value.trim(),feedback=card.querySelector('.audit-feedback');
+    if(reason.length<8){feedback.textContent='復活理由を8文字以上で入力してください。';return;}
+    if(!confirm('元の除外理由を記録し、この1記事を人間の確認待ちへ移しますか？ 記事の公開・採点は行われません。'))return;
+    const btn=card.querySelector('button');btn.disabled=true;feedback.textContent='処理しています…';
+    try{
+      await rpc('nyu_reopen_excluded_article',{p_source_item_id:card.dataset.id,p_reason:reason,p_expected_stage:card.dataset.stage});
+      await load();
+      $('#notice').textContent='確認待ちに戻しました。記事の公開・採点はしていません。';
+    }catch(e){feedback.textContent='実行できませんでした：'+e.message+'。必要なら再読み込みしてください。';}
+    finally{btn.disabled=false;}
+  }
+  async function load(){
+    $('#notice').textContent='除外理由を集計しています…';
+    const result=await rpc('nyu_exclusion_audit',params());
+    renderReasons(result);render(result);
+    $('#notice').textContent='除外履歴を読み取りました。復活操作は管理者の確認待ちへ戻すだけです。';
+  }
+  function filter(){
+    state.stage=$('#stage').value;
+    state.domain=$('#domain').value;
+    state.reason=$('#reason').value;
+    state.query=$('#keyword').value.trim();
+    page=1;load().catch(e=>$('#notice').textContent='取得できません：'+e.message);
+  }
+  async function init(){
+    try{
+      session=JSON.parse(localStorage.getItem(key)||localStorage.getItem('zennyu_admin_session_v1')||'null');
+      if(!await valid())throw Error('編集デスクでログインしてください');
+      const global=await rpc('nyu_exclusion_audit',{p_stage:'all',p_page:1,p_limit:1});
+      renderStats(global);makeDomainOptions(global);
+      $('#app').hidden=false;
+      await load();
+    }catch(e){$('#notice').textContent=e.message;}
+  }
+  $('#apply').addEventListener('click',filter);
+  $('#stage').addEventListener('change',filter);
+  $('#domain').addEventListener('change',filter);
+  $('#reason').addEventListener('change',filter);
+  $('#keyword').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();filter();}});
+  $('#clear').addEventListener('click',()=>{state.stage='router';state.domain='';state.reason='';state.query='';$('#stage').value='router';$('#domain').value='';$('#reason').value='';$('#keyword').value='';page=1;load().catch(e=>$('#notice').textContent=e.message);});
+  $('#prev').addEventListener('click',()=>{page=Math.max(1,page-1);load().catch(e=>$('#notice').textContent=e.message);});
+  $('#next').addEventListener('click',()=>{page++;load().catch(e=>$('#notice').textContent=e.message);});
+  init();
+})();</script></body></html>
