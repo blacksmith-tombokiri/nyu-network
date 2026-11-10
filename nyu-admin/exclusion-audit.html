@@ -87,7 +87,7 @@
     $('#matches').innerHTML=(data.rows||[]).length?data.rows.map(x=>{
       const url=validUrl(x.source_url);
       const stage=x.stage==='prefilter'?'一次除外':'二次除外';
-      const eligible=x.source_eligible;
+      const eligible=x.can_reopen===true;
       const badge=eligible?'<span class="audit-pill good">復活可能な情報源</span>':'<span class="audit-pill muted">情報源の利用条件により復活不可</span>';
       return `<article class="audit-article" data-id="${esc(x.source_item_id)}" data-stage="${esc(x.stage)}">
         <div class="audit-meta"><span class="audit-pill">${stage}</span>${badge}<span>${esc(x.domain)}</span></div>
