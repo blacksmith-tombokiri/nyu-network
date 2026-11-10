@@ -53,11 +53,11 @@
         </label>
       </section>
 
-      <section class="panel" style="padding:14px 18px;margin:14px 0;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;"><div><strong>ファクトパック確認</strong><div class="small">要確認の根拠・数値を照合し、事実確認済みにします。記事公開とは別の操作です。</div></div><a class="ghost" style="text-decoration:none;display:inline-block" href="factpacks.html">確認・承認画面へ</a></section>
+      <section class="panel" style="padding:14px 18px;margin:14px 0;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;"><div><strong>ファクトパック確認</strong><div class="small">確認待ちは14日間表示。90日後に未承認の詳細を整理します。記事公開とは別の操作です。</div></div><a class="ghost" style="text-decoration:none;display:inline-block" href="factpacks.html">確認・承認画面へ</a></section>
 
       <section class="panel" style="margin:12px 0;padding:13px 18px;display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap"><div><strong>AI実行の安全管理</strong><div class="small">模擬評価の件数上限・仮予算・自動停止・実行ログを確認します。</div></div><a href="ai-safety.html" class="ghost" style="text-decoration:none;display:inline-block">安全管理画面へ</a></section>
 
-      <section class="panel" style="padding:14px 18px;margin:14px 0;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;"><div><strong>記事の例外確認</strong><div class="small">自動確認できなかった記事のうち、検討価値のある候補だけを表示します。対象外は除外記録に残します。</div></div><a class="ghost" style="text-decoration:none;display:inline-block" href="factpack-queue.html">例外確認キューへ</a></section>
+      <section class="panel" style="padding:14px 18px;margin:14px 0;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;"><div><strong>記事の例外確認</strong><div class="small">検討価値のある候補だけ14日間表示し、未処理のまま90日後に詳細を整理します。</div></div><a class="ghost" style="text-decoration:none;display:inline-block" href="factpack-queue.html">例外確認キューへ</a></section>
 
       <section class="panel" style="padding:14px 18px;margin:14px 0;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;"><div><strong>二次除外の監査</strong><div class="small">二次除外の記事だけを監査。一次除外は内部記録のみとし、編集デスクには表示しません。</div></div><a class="ghost" style="text-decoration:none;display:inline-block" href="exclusion-audit.html">除外監査画面へ</a></section>
 
@@ -74,7 +74,7 @@
           <button class="filter active" data-filter="all" type="button">すべて</button>
           <button class="filter" data-filter="published" type="button">公開</button>
           <button class="filter" data-filter="unpublished" type="button">非公開</button>
-          <button class="filter" data-filter="review" type="button" id="review-filter-label">70-79点</button>
+          <button class="filter" data-filter="review" type="button" id="review-filter-label" title="非公開の70〜79点候補は14日間だけ表示">70-79点</button>
           <button class="filter" data-filter="featured" type="button" id="featured-filter-label">注目記事</button>
         </div>
       </div>
