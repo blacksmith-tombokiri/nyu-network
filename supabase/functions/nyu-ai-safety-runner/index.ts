@@ -80,7 +80,8 @@ Deno.serve(async(req:Request)=>{
    database_writes_to_articles:0,circuit_open:recorded.circuit_open,
    results:results.map((x:any)=>({source_item_id:x.source_item_id,accepted:body.mode==="simulate"?null:x.accepted===true,
     mock_score:x.mock_evaluation?.score_total??null,blocked_reasons:x.blocked_reasons??[],
-    preview:x.publication_preview?.verdict??null,actually_published:false})),
+    preview:'mock_draft_only',would_qualify_if_real_ai:x.publication_preview?.verdict==='would_publish',
+    article_preview:x.accepted===true?(x.article_preview||null):null,actually_published:false})),
    note:"Safety-guarded mock only. No paid AI or publishing."});
  }catch(err){
   const errcode=err instanceof Error&&err.message==="injected_test_failure"?"simulated_failure":"evaluation_failed";
