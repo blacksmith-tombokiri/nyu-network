@@ -155,14 +155,18 @@ txt+='</div>';
 }
 txt+='</div><div class="message" id="facts-message"></div>';
 if(!complete)txt+='<button id="save-facts" class="primary" type="button">第2段階を確定し、作成方法を確認</button>';
-else txt+='<div class="origin"><h3>回答後の種明かし</h3>'+g.items.map(item=>{
-let identity= '既存記事';
-if(item.article_title===trial.gpt_draft_title&&item.article_body===trial.gpt_draft_body)identity='GPT編集版';
-else if(item.article_title===trial.draft_title&&item.article_body===trial.draft_body)identity='AIなし定型文版';
-return '<p><strong>案 '+item.option_code+'：</strong>'+identity+'</p>'
-}).join('')+'</div>';
+else txt+='<div class="origin" id="reveal-labels"><h3>回答後の種明かし</h3><p>作成方法を確認しています…</p></div>';
 holder.insertAdjacentHTML('beforeend',txt);
 if(!complete)$('#save-facts').addEventListener('click',()=>saveFacts(g));
+else {
+ try{
+  const revealed=await api('nyu_blind_review_reveal?select=option_code,variant_key&trial_id=eq.'+g.id+'&order=option_code.asc');
+  if(revealed.length!==g.codes.length)throw new Error('回答完了の確認が取れません');
+  const names={template:'AIなし定型文版',gpt:'GPT編集版',existing:'既存記事'};
+  const box=holder.querySelector('#reveal-labels');
+  if(box)box.innerHTML='<h3>回答後の種明かし</h3>'+revealed.map(x=>'<p><strong>案 '+esc(x.option_code)+'：</strong>'+esc(names[x.variant_key]||'不明')+'</p>').join('');
+ }catch(e){const box=holder.querySelector('#reveal-labels');if(box)box.textContent='作成方法を取得できません：'+e.message}
+}
 }
 async function saveFacts(g){
 if(busy)return;const entries=[];
