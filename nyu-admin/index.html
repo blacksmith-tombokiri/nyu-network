@@ -99,11 +99,16 @@
 
       <div id="status" class="status"></div>
       <div id="review-list"></div>
+      <section id="luna-evidence-review-panel" class="panel" hidden style="padding:16px 18px;margin:15px 0">
+        <h3 style="margin:0 0 8px">Luna 原文・ファクトパック確認待ち</h3>
+        <p class="small">事実の引用や実施段階を自動確認できなかった案件です。自動採点・公開へ進まず、編集者が出典を確認します。</p>
+        <div id="luna-evidence-review-list"></div>
+      </section>
     </section>
   </main>
 
   <script src="../zennyu/config.js?v=20261031-3"></script>
-  <script src="admin.js?v=20261111-luna-unified1"></script>
+  <script src="admin.js?v=20261111-luna-factpack-auto1"></script>
   <script>
     document.querySelector('#date-search-btn')?.addEventListener('click', () => {
       document.querySelector('#date-filter')?.dispatchEvent(new Event('change', { bubbles: true }));
