@@ -254,7 +254,7 @@
   }
 
   function scoreHint(item) {
-    if (item.luna_draft_id) return item.editorial_status==='approved_by_editor'?'Luna・編集承認済み':item.editorial_status==='rejected_by_editor'?'Luna・差し戻し':'Luna・編集確認待ち';
+    if (item.luna_score_id) return !item.luna_draft_id?'Luna・原稿準備待ち':item.editorial_status==='approved_by_editor'?'Luna・編集承認済み':item.editorial_status==='rejected_by_editor'?'Luna・差し戻し':'Luna・編集確認待ち';
     if (item.score_total == null) return '公開記事';
     const n = Number(item.score_total);
     if (n >= 80) return ui().autoLabel;
@@ -269,8 +269,8 @@
     const detailSummary = item.event_summary || item.source_summary || '要約情報はありません。';
     const reason = item.suggested_reason || item.gate_reason || '判定理由はありません。';
     const title = item.suggested_title || item.source_title || '無題';
-    const articleAction = item.luna_draft_id
-      ? `<span class="small">${item.editorial_status==='approved_by_editor'?'編集承認済み（未公開）':item.editorial_status==='rejected_by_editor'?'差し戻し中':'公開前の編集確認待ち'}</span>`
+    const articleAction = item.luna_score_id
+      ? `<span class="small">${!item.luna_draft_id?'原稿生成・審査待ち':item.editorial_status==='approved_by_editor'?'編集承認済み（未公開）':item.editorial_status==='rejected_by_editor'?'差し戻し中':'公開前の編集確認待ち'}</span>`
       : item.article_id
       ? `<button class="state-btn ${published ? 'unpublish' : ''}" type="button" data-action="${published ? 'unpublish-article' : 'publish-article'}">${published ? '非公開にする' : '公開する'}</button>`
       : `<button class="state-btn" type="button" data-action="publish-review">公開する</button>`;
@@ -374,12 +374,12 @@
     status.textContent = '記事を読み込んでいます…';
     const [rows, lunaRows] = await Promise.all([
       api(`nyu_admin_article_catalog?select=*&brand_slug=eq.${encodeURIComponent(activeBrand)}&order=review_date.desc.nullslast,score_total.desc.nullslast`),
-      activeBrand==='zen' ? api('nyu_admin_luna_editorial_desk?select=*&score_total=gte.80&order=scored_at.desc&limit=100') : Promise.resolve([])
+      activeBrand==='zen' ? api('nyu_admin_luna_editorial_desk?select=*&score_total=gte.70&order=scored_at.desc&limit=100') : Promise.resolve([])
     ]);
     await loadFeatured();
     const codes={good:'善',forward:'前',nature:'然',repair:'繕',mind:'禅',food:'膳'};
-    const lunaItems=(lunaRows||[]).filter(x=>x.draft_id).map(x=>({
-      item_key:'luna:'+x.draft_id,luna_draft_id:x.draft_id,
+    const lunaItems=(lunaRows||[]).map(x=>({
+      item_key:'luna:'+x.score_id,luna_score_id:x.score_id,luna_draft_id:x.draft_id,
       article_id:null,evaluation_id:null,source_item_id:x.source_item_id,
       score_total:x.score_total,score_common:x.score_common,score_category:x.score_category,
       suggested_title:x.headline||x.source_title,suggested_comment:x.zencho_comment,
