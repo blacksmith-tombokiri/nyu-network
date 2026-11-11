@@ -15,4 +15,26 @@
 .share-glyph{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;font-size:17px;line-height:1}
 .share-line{width:18px;height:18px;border-radius:6px;background:#06c755;color:#fff;font-size:12px;font-weight:900}
 .article-share-status{display:block;min-height:15px;margin-top:7px;color:var(--brand);font-size:12px}
-@media(max-width:520px){.article-share-items{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.article-share-button{width:100%;padding:10px 8px;font-size:12px}}
+/* On phones, make the OS share sheet the primary action. Keep direct links as quiet fallbacks. */
+@media(max-width:699px){
+  .article-share{margin-bottom:23px}
+  .article-share-caption{margin-bottom:11px}
+  .article-share-items{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .article-share-button{width:100%;min-width:0;min-height:42px;padding:9px 4px;font-size:11px;gap:5px}
+  .article-share-button[data-share-action="native"]{
+    grid-column:1/-1;
+    min-height:52px;
+    padding:12px 16px;
+    border:1px solid var(--brand);
+    border-radius:14px;
+    background:var(--brand);
+    color:#fff;
+    font-size:15px;
+    font-weight:800;
+    box-shadow:0 3px 10px rgba(34,83,59,.10);
+  }
+  .article-share-button[data-share-action="native"] .share-glyph{font-size:21px;width:22px;height:22px}
+  .article-share-button[data-share-action="native"]:hover{background:var(--brand);border-color:var(--brand)}
+  .article-share-button:not([data-share-action="native"]){border-color:#e1e9e3;background:#fff;color:#5e6d63}
+  .article-share-button:not([data-share-action="native"]):hover{background:#f5f8f6;border-color:#cfd9d2}
+}
