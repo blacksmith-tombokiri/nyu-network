@@ -47,6 +47,7 @@ section.note{background:#f4f8f5;padding:9px 12px;margin:8px 0;border-radius:6px}
 <span id="refresh-time" class="small"></span>
 </div>
 <section class="panel"><h2>編集候補一覧</h2><div id="list"></div></section>
+<section class="panel"><h2>原文確認・ファクトパック審査</h2><p class="small">原文の見出し照合だけでは正式採点へ進みません。出典中の個別の主張と引用を審査し、既存記事との重複も確認します。</p><div id="review-list"></div></section>
 <section class="panel"><h2>運用メモ</h2><p class="small">0・6・12・18時に収集、各20分に採点、30分に候補を振り分ける予定の仕組みです。Lunaの本番課金が停止中の場合、新しい記事の採点・生成は行われません。掲載する際は根拠資料・権利・重複・文章品質を再確認してください。</p></section>
 </section>
 </main>
@@ -102,13 +103,29 @@ return '<article class="card"><h3>'+esc(r.draft_id?r.headline:r.source_title)+'<
 '<details><summary>確認済みファクトパック原文</summary><pre>'+esc(r.evidence_excerpt||'原文未取得')+'</pre></details></article>';
 }).join(''):'<p class="muted">この条件のニュースはまだありません。80点以上の実記事が採点されると、ここに表示されます。</p>';
 }
+function renderReviews(reviews){
+const container=$('review-list');
+if(!reviews.length){container.textContent='審査対象はまだありません。';return;}
+container.innerHTML=reviews.map(r=>{
+ const label=r.review_status==='formal_ready'?'正式採点可':r.review_status==='source_quote_verified'?'既存評価あり・重複防止':'要ファクトパック確認';
+ const cls=r.review_status==='formal_ready'?'pill':'warn';
+ const link=/^https:\/\//.test(r.source_url||'')?'<a target="_blank" rel="noopener noreferrer" href="'+esc(r.source_url)+'">出典</a>':'出典確認待ち';
+ const claims=Array.isArray(r.evidence_claims)?r.evidence_claims:[];
+ const limitations=Array.isArray(r.evidence_limitations)?r.evidence_limitations:[];
+ return '<article class="card"><h3>'+esc(r.source_title)+'</h3><p><span class="pill '+cls+'">'+esc(label)+'</span>　'+link+
+ (r.formal_score!==null&&r.formal_score!==undefined?'　<strong>'+esc(r.formal_score)+'点</strong>':'')+'</p>'+
+ '<p class="small">'+esc(r.review_note)+'</p>'+
+ (limitations.length?'<details><summary>確認上の制約 '+limitations.length+'件</summary><ul>'+limitations.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></details>':'')+
+ (claims.length?'<details><summary>根拠引用 '+claims.length+'件</summary>'+claims.map(x=>'<section class="note">'+esc(x)+'</section>').join('')+'</details>':'')+'</article>';
+}).join('');
+}
 async function load(){
 $('refresh').disabled=true;
 try{
-const data=await api('nyu_admin_luna_editorial_desk?select=*&order=scored_at.desc&limit=100');
+const [data,reviewData]=await Promise.all([api('nyu_admin_luna_editorial_desk?select=*&order=scored_at.desc&limit=100'),api('nyu_admin_luna_factpack_reviews?select=*&order=reviewed_at.desc&limit=100')]);
 rows=data;panel.hidden=false;message('管理者データを読み込みました。掲載・承認操作はこの画面からは実行しません。',true);
 $('refresh-time').textContent='最終更新 '+new Date().toLocaleString('ja-JP');
-render();
+render();renderReviews(reviewData);
 }catch(e){message(String(e.message||e),false);}
 finally{$('refresh').disabled=false;}
 }
