@@ -16,7 +16,7 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f5f8f6;border-radius
 </style></head>
 <body><header><a href="index.html?brand=zen">← 編集デスク</a><h1>事実採点 → 記事編集 Ver.0.5</h1><p class="small">入力は公式根拠のあるファクトパックのみ。記事の文章は採点が確定した後で作ります。</p></header>
 <main><div class="notice"><strong>安全な試験運用</strong><p>この画面の点数は管理者が事実を見て手動入力する<strong>試験専用の確定スコア</strong>です。模擬AI点数を正式評価に流用しません。作成する下書きは別テーブルに隔離され、サイトへの公開も既存評価の書換えもできません。採点後は点数を変更できません。</p></div>
-<div class="steps"><div class="step">① 根拠を確認</div><div class="step">② 事実で採点・固定</div><div class="step">③ 80点以上だけ記事編集</div></div>
+<div class="steps"><div class="step">① 根拠を確認</div><div class="step">② 事実で採点・固定</div><div class="step">③ 70点以上だけ記事編集</div></div>
 <p id="status" class="card" role="status" aria-live="polite">管理者ログインを確認しています…</p>
 <section id="main-ui" hidden>
 <section class="card"><h2>① 採点前の確認候補</h2><p class="small">検証済みの一次情報だけが表示されます。候補を開いてから採点してください。</p><div id="candidates"></div></section>
@@ -25,7 +25,7 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f5f8f6;border-radius
 <div class="split"><label>共通評価（0〜60）<input name="p_common" type="number" min="0" max="60" value="45" required></label><label>カテゴリ評価（0〜40）<input name="p_category" type="number" min="0" max="40" value="30" required></label></div>
 <label>評価カテゴリ<select name="p_category_code" required><option value="good">善</option><option value="forward">前</option><option value="nature">然</option><option value="repair">繕</option><option value="mind">禅</option><option value="food">膳</option></select></label>
 <label>採点根拠（20文字以上、元資料にある事実と確認できない効果を区別）<textarea name="p_scoring_note" required minlength="20" maxlength="2000" placeholder="例：採択された事実を評価。実用化後の効果は現時点で確認できないため加点しない。"></textarea></label>
-<p id="score-total" class="pill">合計75点：採点しても記事生成対象外</p><p class="small">保存した採点はこの実験内で固定され、あとから記事編集しても上書きされません。変更するには別途根拠付きの再評価機構が必要です。</p>
+<p id="score-total" class="pill">合計75点：記事生成候補・人間の掲載判断が必要</p><p class="small">保存した採点はこの実験内で固定され、あとから記事編集しても上書きされません。変更するには別途根拠付きの再評価機構が必要です。</p>
 <button type="submit">事実スコアを固定して保存</button>
 </form></section>
 <section class="card"><h2>③ 採点済み案件と記事下書き</h2><div id="scored"></div></section>
@@ -70,11 +70,11 @@ const fact=c.factpack_snapshot||{},nums=Array.isArray(fact.verified_numbers)?fac
 return '<div class="item"><h3>'+esc(c.source_title)+'</h3><p class="small">'+esc(c.publisher)+'　根拠確認：'+esc(c.verified_at||'')+'</p><p>確認できた行動：'+esc(fact.verified_action?.value||'不明')+' ／ 段階：'+esc(fact.implementation_stage||'不明')+'</p><p>確認済み数値：'+(nums||'なし')+'</p><details><summary>根拠原文を表示</summary><pre>'+esc(fact.evidence_excerpt||'')+'</pre><p class="small">出典URL：<a target="_blank" rel="noopener noreferrer" href="'+esc(c.source_url)+'">'+esc(c.source_url)+'</a></p></details><p><button class="secondary" data-candidate="'+i+'">この事実を採点する</button></p></div>'
 }).join(''):'<p class="muted">現在、未採点の厳格確認済みファクトパックはありません。</p>';
 $('scored').innerHTML=scores.length?scores.map(s=>{
-const d=drafts.find(x=>x.score_id===s.id);const eligible=s.score_total>=80;
-return '<div class="item"><h3>'+esc(s.source_snapshot?.source_title||'元ニュース')+'</h3><p><strong>'+s.score_total+'点</strong>（共通'+s.score_common+'点＋カテゴリ'+s.score_category+'点）　<span class="pill">'+(eligible?'記事編集候補':'80点未満・保留')+'</span></p><p class="small">採点根拠：'+esc(s.scoring_note)+'</p>'+(d?'<details><summary>保存済み下書き（非公開）</summary><strong>'+esc(d.draft_title)+'</strong><p>'+esc(d.draft_body)+'</p><p>善兆コメント：'+esc(d.editorial_comment)+'</p><p>なぜ善兆なのか：'+esc(d.editorial_reason)+'</p></details>':eligible?'<button data-edit="'+esc(s.id)+'">このスコアで記事を編集</button>':'<p class="small">記事は生成できません。</p>')+'</div>';
+const d=drafts.find(x=>x.score_id===s.id);const eligible=s.score_total>=70;
+return '<div class="item"><h3>'+esc(s.source_snapshot?.source_title||'元ニュース')+'</h3><p><strong>'+s.score_total+'点</strong>（共通'+s.score_common+'点＋カテゴリ'+s.score_category+'点）　<span class="pill">'+(s.score_total>=80?'記事生成候補（80点以上）':eligible?'記事生成候補（70〜79点・人間が掲載判断）':'70点未満・見送り')+'</span></p><p class="small">採点根拠：'+esc(s.scoring_note)+'</p>'+(d?'<details><summary>保存済み下書き（非公開）</summary><strong>'+esc(d.draft_title)+'</strong><p>'+esc(d.draft_body)+'</p><p>善兆コメント：'+esc(d.editorial_comment)+'</p><p>なぜ善兆なのか：'+esc(d.editorial_reason)+'</p></details>':eligible?'<button data-edit="'+esc(s.id)+'">このスコアで記事を編集</button>':'<p class="small">記事は生成できません。</p>')+'</div>';
 }).join(''):'<p class="muted">まだ採点済みの案件はありません。</p>';
 }
-function updateScoreTotal(){const f=$('score-form'),a=Number(f.elements.p_common.value),b=Number(f.elements.p_category.value),t=a+b;$('score-total').textContent='合計'+t+'点：'+(t>=80?'採点後に記事編集が可能':'採点しても記事編集対象外')}
+function updateScoreTotal(){const f=$('score-form'),a=Number(f.elements.p_common.value),b=Number(f.elements.p_category.value),t=a+b;$('score-total').textContent='合計'+t+'点：'+(t>=80?'記事編集可能・通常掲載候補':t>=70?'記事編集可能・人間の掲載判断が必須':'採点しても記事編集対象外')}
 document.addEventListener('click',e=>{
 const c=e.target.closest('[data-candidate]');if(c){
 selected=candidates[Number(c.dataset.candidate)];$('scoring').hidden=false;$('selected').innerHTML='<strong>選択中：</strong>'+esc(selected.source_title)+'<p class="small">採点するのは記事文ではなく、上に示した確認済みの事実です。</p>';$('scoring').scrollIntoView({behavior:'smooth'});return;
@@ -86,7 +86,7 @@ $('score-form').addEventListener('submit',async e=>{
 e.preventDefault();if(!selected)return message('まず採点候補を選択してください');
 const f=e.currentTarget,btn=f.querySelector('button[type=submit]');btn.disabled=true;
 try{const body={p_factpack_id:selected.factpack_id,p_expected_fingerprint:selected.snapshot_fingerprint,p_common:Number(f.elements.p_common.value),p_category:Number(f.elements.p_category.value),p_category_code:f.elements.p_category_code.value,p_scoring_note:f.elements.p_scoring_note.value};
-const result=await api('rpc/nyu_v05_record_fact_score',{body});selected=null;$('scoring').hidden=true;f.reset();updateScoreTotal();await load();message('事実スコア'+result.score_total+'点を固定保存しました。'+(result.editorial_unlocked?'記事編集が可能です。':'80点未満のため記事編集はできません。'),true);
+const result=await api('rpc/nyu_v05_record_fact_score',{body});selected=null;$('scoring').hidden=true;f.reset();updateScoreTotal();await load();message('事実スコア'+result.score_total+'点を固定保存しました。'+(result.editorial_unlocked?(result.publication_route==='human_review_required'?'記事編集可能ですが、掲載には人間の判断が必要です。':'記事編集が可能です。'):'70点未満のため記事編集はできません。'),true);
 }catch(err){message('保存できませんでした：'+err.message)}finally{btn.disabled=false}
 });
 $('draft-form').addEventListener('submit',async e=>{
