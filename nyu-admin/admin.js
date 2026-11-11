@@ -270,13 +270,24 @@
     const reason = item.suggested_reason || item.gate_reason || '判定理由はありません。';
     const title = item.suggested_title || item.source_title || '無題';
     const articleAction = item.luna_score_id
-      ? `<span class="small">${!item.luna_draft_id?'原稿生成・審査待ち':item.editorial_status==='approved_by_editor'?'編集承認済み（未公開）':item.editorial_status==='rejected_by_editor'?'差し戻し中':'公開前の編集確認待ち'}</span>`
+      ? (published && item.article_id
+          ? `<button class="state-btn unpublish" type="button" data-action="unpublish-article">非公開にする</button>`
+          : `<span class="small">${!item.luna_draft_id?'原稿生成・審査待ち':item.article_id?'非公開（再公開は要確認）':item.editorial_status==='approved_by_editor'?'編集承認済み・公開待ち':item.editorial_status==='rejected_by_editor'?'差し戻し中':'編集確認待ち'}</span>`)
       : item.article_id
       ? `<button class="state-btn ${published ? 'unpublish' : ''}" type="button" data-action="${published ? 'unpublish-article' : 'publish-article'}">${published ? '非公開にする' : '公開する'}</button>`
       : `<button class="state-btn" type="button" data-action="publish-review">公開する</button>`;
     const pinAction = published && item.article_id
       ? `<button class="pin-btn ${pinned ? 'active' : ''}" type="button" data-action="${pinned ? 'unpin' : 'pin'}">${pinned ? '固定解除' : 'トップに固定'}</button>` : '';
 
+    const sourceTime=new Date(item.source_published_at||'').getTime();
+    const isFresh=Number.isFinite(sourceTime) && sourceTime<=Date.now() && sourceTime>=Date.now()-48*3600000;
+    const factRightsPassed=item.fact_rights_audit?.overall_status==='ready' && item.fact_rights_audit?.factual_status==='pass' && item.fact_rights_audit?.rights_status==='pass';
+    const canManualPublish=!!item.luna_draft_id && !item.article_id && item.editorial_status==='approved_by_editor' &&
+        item.quality_status==='structural_pass' && isFresh && factRightsPassed;
+    const publishBlockReason=!isFresh?'元ニュースの公開から48時間以上経過しています'
+      :item.editorial_status!=='approved_by_editor'?'先に編集承認してください'
+      :!factRightsPassed?'事実・権利の照合が完了していません'
+      :'公開前の条件を満たしていません';
     const lunaExtras = item.luna_draft_id ? `
       <div><b>記事本文（編集可能）</b><textarea data-luna-field="article_body" rows="8" style="width:100%;box-sizing:border-box;font:inherit">${esc(item.article_body||'')}</textarea></div>
       <div><b>タイトル（編集可能）</b><textarea data-luna-field="headline" rows="2" style="width:100%;box-sizing:border-box;font:inherit">${esc(item.headline||'')}</textarea></div>
@@ -286,8 +297,8 @@
       <div><b>自動事実・権利照合</b><br>${item.fact_rights_audit?('事実：'+esc(item.fact_rights_audit.factual_status)+' / 権利：'+esc(item.fact_rights_audit.rights_status)+' / 総合：'+esc(item.fact_rights_audit.overall_status)):'未実施'}<br><span class="small">引用・数字・登録済み利用条件の機械照合です。独立した事実の裏付けや法的保証ではありません。</span>${item.fact_rights_audit?.attribution_text?'<details><summary>自動生成された出典表記</summary><p>'+esc(item.fact_rights_audit.attribution_text)+'</p></details>':''}${item.fact_rights_audit?.checks?'<details><summary>確認項目と保留理由</summary><pre style="white-space:pre-wrap">'+esc(JSON.stringify(item.fact_rights_audit.checks,null,2))+'</pre></details>':''}</div>
       <div><b>確認用メモ</b><textarea data-luna-field="review_note" rows="2" style="width:100%;box-sizing:border-box;font:inherit" placeholder="承認・差し戻しの理由を6文字以上で記入（必須）">${esc(item.review_note||'')}</textarea></div>
       <div><b>根拠引用</b><details><summary>${Array.isArray(item.evidence_claims)?item.evidence_claims.length:0}件の引用を確認</summary>${(Array.isArray(item.evidence_claims)?item.evidence_claims:[]).map(c=>`<p><strong>${esc(c.claim)}</strong><br><span class="small">出典：「${esc(c.quote)}」</span></p>`).join('')}</details></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="ghost" type="button" data-action="luna-save">原稿を保存</button><button class="ghost" type="button" data-action="luna-recheck">根拠を再検証</button><button class="primary" type="button" data-action="luna-approve" ${item.quality_status!=='structural_pass'?'disabled title="再検証を通過してください"':''}>編集承認（非公開）</button><button class="ghost" type="button" data-action="luna-reject">差し戻す</button><button class="ghost" type="button" data-action="luna-reopen">確認待ちに戻す</button></div>
-      <p class="small" style="margin-top:8px">※Luna記事の一般公開は無効です。編集承認とサイト公開は別操作です。</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="ghost" type="button" data-action="luna-save">原稿を保存</button><button class="ghost" type="button" data-action="luna-recheck">根拠を再検証</button><button class="primary" type="button" data-action="luna-approve" ${item.quality_status!=='structural_pass'||published?'disabled title="再検証または非公開への変更が必要です"':''}>${item.editorial_status==='approved_by_editor'?'編集承認済み':'編集承認（非公開）'}</button><button class="primary" type="button" data-action="luna-publish" ${canManualPublish?'':'disabled title="'+esc(publishBlockReason)+'"'}>${published?'公開済み':'公開'}</button><button class="ghost" type="button" data-action="luna-reject" ${published?'disabled':''}>差し戻す</button><button class="ghost" type="button" data-action="luna-reopen">確認待ちに戻す</button></div>
+      <p class="small" style="margin-top:8px">※編集承認と公開は別操作です。公開前に元ニュースの48時間以内・根拠・権利を再確認します。</p>
       ` : '';
     return `<article class="review-row ${featured ? 'is-featured' : ''}" data-key="${esc(item.item_key)}" data-article-id="${esc(item.article_id || '')}" data-evaluation-id="${esc(item.evaluation_id || '')}" data-luna-draft-id="${esc(item.luna_draft_id || '')}">
       <div class="score ${item.score_total == null ? 'na' : ''}">${item.score_total == null ? '－' : esc(item.score_total)}<small>${esc(scoreHint(item))}</small></div>
@@ -403,14 +414,15 @@
     const auditIndex=new Map((auditRows||[]).map(x=>[x.draft_id,x]));
     const lunaItems=(lunaRows||[]).map(x=>({
       item_key:'luna:'+x.score_id,luna_score_id:x.score_id,luna_draft_id:x.draft_id,
-      article_id:null,evaluation_id:null,source_item_id:x.source_item_id,
+      article_id:x.article_id||null,evaluation_id:null,source_item_id:x.source_item_id,
       score_total:x.score_total,score_common:x.score_common,score_category:x.score_category,
       suggested_title:x.headline||x.source_title,suggested_comment:x.zencho_comment,
       suggested_reason:x.zencho_reason,source_title:x.source_title,source_url:x.source_url,
       source_published_at:x.source_published_at,source_name:x.publisher,
       event_summary:x.event_summary,gate_reason:x.scoring_note,
       category_code:x.category_code,category_label:codes[x.category_code]||x.category_code,
-      article_status:'unpublished',review_only:true,
+      article_status:x.article_status||'unpublished',review_only:!x.article_id,
+      public_id:x.public_id||null,published_at:x.published_at||null,
       review_date:x.draft_created_at||x.scored_at,
       headline:x.headline,article_body:x.article_body,
       zencho_comment:x.zencho_comment,zencho_reason:x.zencho_reason,
@@ -461,7 +473,17 @@
       if (action.startsWith('luna-')) {
         const draftId=row?.dataset.lunaDraftId;
         if (!draftId) throw new Error('Luna原稿IDがありません');
-        if (action==='luna-recheck') {
+        if (action==='luna-publish') {
+          const preview=await api('rpc/nyu_publish_luna_draft',{method:'POST',body:{p_draft_id:draftId,p_confirm_publish:false}});
+          if(!preview?.ready)throw new Error('公開条件が整っていません。');
+          const date=new Date(preview.source_published_at).toLocaleString('ja-JP');
+          if(!confirm('【サイトへ一般公開】\\n\\n'+preview.title+'\\n善兆スコア：'+preview.score+'点\\n元ニュース公開：'+date+'\\n\\n本当に今すぐ公開しますか？ 編集承認とは異なり、読者が記事を閲覧できるようになります。')){
+            btn.disabled=false;btn.textContent=oldText;return;
+          }
+          const publishedResult=await api('rpc/nyu_publish_luna_draft',{method:'POST',body:{p_draft_id:draftId,p_confirm_publish:true}});
+          if(!publishedResult?.published)throw new Error('記事を公開できませんでした。');
+          status.textContent='Luna記事を公開しました。';
+        } else if (action==='luna-recheck') {
           const res=await apiLunaRecheck(draftId);
           if (!res.ok) throw new Error(res.error||'検証できませんでした');
           status.textContent='原稿を再検証しました。';
