@@ -6,7 +6,7 @@
 
 /* Article sharing: quiet, accessible, mobile-friendly */
 .article-share{margin:4px 0 24px;padding:13px 0 4px;border-top:1px solid var(--line)}
-.article-share-bottom{margin:32px 0 0;padding-top:20px}
+
 .article-share-caption{display:block;margin-bottom:9px;color:var(--muted);font-size:12px;font-weight:750}
 .article-share-items{display:flex;gap:9px;flex-wrap:wrap}
 .article-share-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:9px 15px;border:1px solid #cfd9d2;border-radius:999px;background:#fff;color:#334139;font:inherit;font-size:13px;font-weight:750;cursor:pointer;transition:background .15s,border-color .15s,transform .15s}
@@ -15,13 +15,15 @@
 .share-glyph{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;font-size:17px;line-height:1}
 .share-line{width:18px;height:18px;border-radius:6px;background:#06c755;color:#fff;font-size:12px;font-weight:900}
 .share-facebook{width:18px;height:18px;border-radius:5px;background:#1877f2;color:#fff;font-size:17px;font-weight:900;font-family:Arial,sans-serif}
+.article-share-button[data-share-action="x"],.article-share-button[data-share-action="facebook"],.article-share-button[data-share-action="line"]{width:44px;min-width:44px;min-height:44px;padding:0;border-radius:999px;gap:0}
+.article-share-button[data-share-action="x"] .share-glyph{font-size:22px}
 .article-share-status{display:block;min-height:15px;margin-top:7px;color:var(--brand);font-size:12px}
 /* On phones, make the OS share sheet the primary action. Keep direct links as quiet fallbacks. */
 @media(max-width:699px){
   .article-share-button[data-share-action="facebook"]{display:none}
   .article-share{margin-bottom:23px}
   .article-share-caption{margin-bottom:11px}
-  .article-share-items{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .article-share-items{display:grid;grid-template-columns:44px 44px minmax(0,1fr);gap:8px}
   .article-share-button{width:100%;min-width:0;min-height:42px;padding:9px 4px;font-size:11px;gap:5px}
   .article-share-button[data-share-action="native"]{
     grid-column:1/-1;
