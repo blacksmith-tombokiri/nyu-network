@@ -382,32 +382,12 @@
     currentFeatured = rows?.[0] || null;
   }
 
-  function renderLunaFactpackReviews(rows) {
-    const panel=document.querySelector('#luna-evidence-review-panel');
-    const root=document.querySelector('#luna-evidence-review-list');
-    if (!panel || !root) return;
-    const show=activeBrand==='zen';
-    panel.hidden=!show;
-    if(!show)return;
-    if(!Array.isArray(rows)||!rows.length){
-      root.textContent='現在、この分類の確認待ち記事はありません。';
-      return;
-    }
-    root.innerHTML=rows.map(row=>{
-      const link=/^https:\/\//.test(row.source_url||'')?'<a target="_blank" rel="noopener noreferrer" href="'+esc(row.source_url)+'">原文を見る</a>':'';
-      return '<article style="border-top:1px solid #e3e7e5;padding:12px 0"><div><strong>'+esc(row.source_title)+'</strong></div>'+
-      '<div class="small">引用・出来事の段階を確認待ち。自動採点へは進みません。'+(row.evidence_characters?' 抽出 '+esc(row.evidence_characters)+'文字':'')+'</div>'+
-      '<div class="small">'+esc(row.review_note||'')+'</div><div>'+link+'</div></article>';
-    }).join('');
-  }
-
   async function loadQueue() {
     status.textContent = '記事を読み込んでいます…';
-    const [rows, lunaRows, auditRows, factReviewRows] = await Promise.all([
+    const [rows, lunaRows, auditRows] = await Promise.all([
       api(`nyu_admin_article_catalog?select=*&brand_slug=eq.${encodeURIComponent(activeBrand)}&order=review_date.desc.nullslast,score_total.desc.nullslast`),
       activeBrand==='zen' ? api('nyu_admin_luna_editorial_desk?select=*&score_total=gte.70&order=scored_at.desc&limit=100') : Promise.resolve([]),
-      activeBrand==='zen' ? api('nyu_admin_luna_release_audits?select=*&order=checked_at.desc&limit=100').catch(()=>[]) : Promise.resolve([]),
-      activeBrand==='zen' ? api('nyu_admin_luna_factpack_reviews?select=*&review_status=eq.needs_manual_review&order=reviewed_at.desc&limit=70').catch(()=>[]) : Promise.resolve([])
+      activeBrand==='zen' ? api('nyu_admin_luna_release_audits?select=*&order=checked_at.desc&limit=100').catch(()=>[]) : Promise.resolve([])
     ]);
     await loadFeatured();
     const codes={good:'善',forward:'前',nature:'然',repair:'繕',mind:'禅',food:'膳'};
@@ -433,7 +413,6 @@
     // Luna drafts have their own immutable score ID; never map them to legacy evaluation IDs.
     items=[...(rows||[]),...lunaItems].filter(retainedForEditorial)
        .sort((a,b)=>new Date(b.review_date||0)-new Date(a.review_date||0));
-    renderLunaFactpackReviews(factReviewRows);
     status.textContent = `${ui().name}：${items.length}件を表示できます。`;
     render();
   }
