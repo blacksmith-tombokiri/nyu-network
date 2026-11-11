@@ -66,7 +66,7 @@
     const root=document.querySelector('#article-app');
     if(!root)return;
     const params=new URLSearchParams(location.search);
-    const publicId=params.get('id')||params.get('public_id')||'';
+    const publicId=params.get('id')||params.get('public_id')||document.querySelector('meta[name="nyu-public-id"]')?.content||'';
     if(!PUBLIC_ID_RE.test(publicId))return;
     let bound=false;
     const bind=()=>{
