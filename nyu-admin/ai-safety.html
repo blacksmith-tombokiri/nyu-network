@@ -6,6 +6,7 @@
     <div class="credit-links">
       <a href="https://platform.openai.com/settings/organization/billing/overview" class="ghost" target="_blank" rel="noopener noreferrer">OpenAIの残高・支払いを確認</a>
       <a href="https://platform.openai.com/usage" class="ghost" target="_blank" rel="noopener noreferrer">公式の使用量を見る</a>
+      <a href="https://platform.openai.com/settings/organization/limits" class="ghost" target="_blank" rel="noopener noreferrer">OpenAIのメール警告を設定</a>
     </div>
   </div>
   <div class="credit-metrics">
@@ -24,6 +25,7 @@
     <button type="submit" class="ghost">確認した残高を記録</button>
   </form>
   <p class="credit-explain">公式残高は自動取得していません。この入力は OpenAI で確認した数値を管理者が転記するものです。入力後は新たなLuna使用分をトークンから推計して差し引きます。OpenAIの全プロジェクトで発生した費用や、記録開始前の利用分は自動追跡できません。支払い・入金履歴の確認と追加購入は上のOpenAI公式リンクから行ってください。</p>
+  <p class="credit-explain">管理画面は開いている間、60秒ごとに残高推計を再取得します。メールで知らせたい場合は OpenAIの「Limits → Spend alerts」でも別途設定できます（こちらは月次支出の通知で、プリペイド残高と完全には一致しません）。</p>
   <p class="credit-explain">Lunaトークン計測（機能追加後）：<strong id="luna-token-summary">集計中</strong>　・　モデル単価からの概算 <strong id="luna-token-cost">集計中</strong>（実請求額ではありません）</p>
 </section><section class="panel safety-note"><strong id="api-indicator">OpenAI API 接続 OFF</strong><p>掲載処理は実行していません。金額は米ドル（USD）表示です。安全テスト用の仮の単価で計算しており、OpenAIの実際の請求額ではありません。停止解除や予算変更はこの画面からはできません。</p></section>
 <section class="panel safety-header"><div><strong>設定・実行状況</strong><p id="last-update" class="small"></p></div><button class="ghost" id="reload" type="button">最新を取得</button></section><p id="message" role="status" class="status"></p>
@@ -111,5 +113,5 @@ select('#official-balance-form').addEventListener('submit',async e=>{
    select('#message').textContent='確認した公式残高を記録しました。';
  }catch(err){select('#message').textContent='残高を記録できません：'+err.message;}
 });
-select("#reload").addEventListener("click",load);load();
+select("#reload").addEventListener("click",load);load();setInterval(load,60000);
 })();</script></body></html>
