@@ -14,9 +14,11 @@
 .article-share-button:focus-visible{outline:3px solid #7caa92;outline-offset:3px}
 .share-glyph{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;font-size:17px;line-height:1}
 .share-line{width:18px;height:18px;border-radius:6px;background:#06c755;color:#fff;font-size:12px;font-weight:900}
+.share-facebook{width:18px;height:18px;border-radius:5px;background:#1877f2;color:#fff;font-size:17px;font-weight:900;font-family:Arial,sans-serif}
 .article-share-status{display:block;min-height:15px;margin-top:7px;color:var(--brand);font-size:12px}
 /* On phones, make the OS share sheet the primary action. Keep direct links as quiet fallbacks. */
 @media(max-width:699px){
+  .article-share-button[data-share-action="facebook"]{display:none}
   .article-share{margin-bottom:23px}
   .article-share-caption{margin-bottom:11px}
   .article-share-items{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
@@ -37,4 +39,11 @@
   .article-share-button[data-share-action="native"]:hover{background:var(--brand);border-color:var(--brand)}
   .article-share-button:not([data-share-action="native"]){border-color:#e1e9e3;background:#fff;color:#5e6d63}
   .article-share-button:not([data-share-action="native"]):hover{background:#f5f8f6;border-color:#cfd9d2}
+}
+
+/* Desktop shares are deliberately limited to X and Facebook. */
+@media(min-width:700px){
+  .article-share-button[data-share-action="native"],
+  .article-share-button[data-share-action="line"],
+  .article-share-button[data-share-action="copy"]{display:none}
 }
