@@ -283,6 +283,7 @@
       <div><b>${esc(ui().commentLabel)}（編集可能）</b><textarea data-luna-field="zencho_comment" rows="3" style="width:100%;box-sizing:border-box;font:inherit">${esc(item.zencho_comment||'')}</textarea></div>
       <div><b>なぜ善兆なのか（編集可能）</b><textarea data-luna-field="zencho_reason" rows="4" style="width:100%;box-sizing:border-box;font:inherit">${esc(item.zencho_reason||'')}</textarea></div>
       <div><b>原稿チェックと編集状態</b>${esc(item.quality_status||'未検査')} / ${esc(item.editorial_status||'未審査')}<br><span class="small">機械検証の通過は最終事実確認ではありません。原稿修正後は再検証が必要です。</span></div>
+      <div><b>自動事実・権利照合</b><br>${item.fact_rights_audit?('事実：'+esc(item.fact_rights_audit.factual_status)+' / 権利：'+esc(item.fact_rights_audit.rights_status)+' / 総合：'+esc(item.fact_rights_audit.overall_status)):'未実施'}<br><span class="small">引用・数字・登録済み利用条件の機械照合です。独立した事実の裏付けや法的保証ではありません。</span>${item.fact_rights_audit?.attribution_text?'<details><summary>自動生成された出典表記</summary><p>'+esc(item.fact_rights_audit.attribution_text)+'</p></details>':''}${item.fact_rights_audit?.checks?'<details><summary>確認項目と保留理由</summary><pre style="white-space:pre-wrap">'+esc(JSON.stringify(item.fact_rights_audit.checks,null,2))+'</pre></details>':''}</div>
       <div><b>確認用メモ</b><textarea data-luna-field="review_note" rows="2" style="width:100%;box-sizing:border-box;font:inherit" placeholder="承認・差し戻しの理由を記入">${esc(item.review_note||'')}</textarea></div>
       <div><b>根拠引用</b><details><summary>${Array.isArray(item.evidence_claims)?item.evidence_claims.length:0}件の引用を確認</summary>${(Array.isArray(item.evidence_claims)?item.evidence_claims:[]).map(c=>`<p><strong>${esc(c.claim)}</strong><br><span class="small">出典：「${esc(c.quote)}」</span></p>`).join('')}</details></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="ghost" type="button" data-action="luna-save">原稿を保存</button><button class="ghost" type="button" data-action="luna-recheck">根拠を再検証</button><button class="primary" type="button" data-action="luna-approve" ${item.quality_status!=='structural_pass'?'disabled title="再検証を通過してください"':''}>編集承認</button><button class="ghost" type="button" data-action="luna-reject">差し戻す</button><button class="ghost" type="button" data-action="luna-reopen">確認待ちに戻す</button></div>
@@ -372,12 +373,14 @@
 
   async function loadQueue() {
     status.textContent = '記事を読み込んでいます…';
-    const [rows, lunaRows] = await Promise.all([
+    const [rows, lunaRows, auditRows] = await Promise.all([
       api(`nyu_admin_article_catalog?select=*&brand_slug=eq.${encodeURIComponent(activeBrand)}&order=review_date.desc.nullslast,score_total.desc.nullslast`),
-      activeBrand==='zen' ? api('nyu_admin_luna_editorial_desk?select=*&score_total=gte.70&order=scored_at.desc&limit=100') : Promise.resolve([])
+      activeBrand==='zen' ? api('nyu_admin_luna_editorial_desk?select=*&score_total=gte.70&order=scored_at.desc&limit=100') : Promise.resolve([]),
+      activeBrand==='zen' ? api('nyu_admin_luna_release_audits?select=*&order=checked_at.desc&limit=100').catch(()=>[]) : Promise.resolve([])
     ]);
     await loadFeatured();
     const codes={good:'善',forward:'前',nature:'然',repair:'繕',mind:'禅',food:'膳'};
+    const auditIndex=new Map((auditRows||[]).map(x=>[x.draft_id,x]));
     const lunaItems=(lunaRows||[]).map(x=>({
       item_key:'luna:'+x.score_id,luna_score_id:x.score_id,luna_draft_id:x.draft_id,
       article_id:null,evaluation_id:null,source_item_id:x.source_item_id,
@@ -392,7 +395,8 @@
       headline:x.headline,article_body:x.article_body,
       zencho_comment:x.zencho_comment,zencho_reason:x.zencho_reason,
       evidence_claims:x.evidence_claims,quality_status:x.quality_status,
-      editorial_status:x.editorial_status,review_note:x.review_note
+      editorial_status:x.editorial_status,review_note:x.review_note,
+      fact_rights_audit:x.draft_id?(auditIndex.get(x.draft_id)||null):null
     }));
     // Luna drafts have their own immutable score ID; never map them to legacy evaluation IDs.
     items=[...(rows||[]),...lunaItems].filter(retainedForEditorial)
