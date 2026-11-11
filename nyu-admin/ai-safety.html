@@ -1,7 +1,31 @@
 <!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>AI安全管理 | NYUNET</title><link rel="stylesheet" href="admin.css?v=20261103-1">
-<style>.safety-header{display:flex;justify-content:space-between;align-items:center;gap:16px;margin:15px 0;padding:16px 18px}.safety-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(265px,1fr));gap:14px;margin:15px 0}.safety-card{background:#fff;border:1px solid #d9dfd7;border-radius:14px;padding:18px}.safety-card header{display:flex;justify-content:space-between;gap:8px}.safety-card dl{display:grid;grid-template-columns:1fr auto;gap:9px;margin:18px 0;font-size:13px}.safety-card dd{font-weight:800;margin:0}.safety-card dt{color:#6f7a72}.safety-card p{font-size:12px;color:#58695c}.running,.stop{font-size:12px;border-radius:99px;padding:5px 9px;font-weight:800}.running{background:#e7efe9;color:#315f45}.stop{background:#fff0e8;color:#9e442f}.safety-table{width:100%;border-collapse:collapse;font-size:13px}.safety-table th,.safety-table td{padding:10px;border-bottom:1px solid #e7eae7;text-align:left;white-space:nowrap}.scroll{overflow:auto;padding:16px}.safety-note{padding:18px;color:#556459;font-size:13px;line-height:1.8}.back{display:inline-block;text-decoration:none}</style></head>
+<style>.safety-header{display:flex;justify-content:space-between;align-items:center;gap:16px;margin:15px 0;padding:16px 18px}.safety-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(265px,1fr));gap:14px;margin:15px 0}.safety-card{background:#fff;border:1px solid #d9dfd7;border-radius:14px;padding:18px}.safety-card header{display:flex;justify-content:space-between;gap:8px}.safety-card dl{display:grid;grid-template-columns:1fr auto;gap:9px;margin:18px 0;font-size:13px}.safety-card dd{font-weight:800;margin:0}.safety-card dt{color:#6f7a72}.safety-card p{font-size:12px;color:#58695c}.running,.stop{font-size:12px;border-radius:99px;padding:5px 9px;font-weight:800}.running{background:#e7efe9;color:#315f45}.stop{background:#fff0e8;color:#9e442f}.safety-table{width:100%;border-collapse:collapse;font-size:13px}.safety-table th,.safety-table td{padding:10px;border-bottom:1px solid #e7eae7;text-align:left;white-space:nowrap}.scroll{overflow:auto;padding:16px}.safety-note{padding:18px;color:#556459;font-size:13px;line-height:1.8}.back{display:inline-block;text-decoration:none}.credit-panel{padding:18px;margin:16px 0}.credit-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}.credit-links{display:flex;gap:8px;flex-wrap:wrap}.credit-links a{font-weight:700}.credit-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px;margin:14px 0}.credit-stat{border:1px solid #e1e8e4;border-radius:10px;padding:13px}.credit-stat small{display:block;color:#5b695f}.credit-stat strong{font-size:25px;font-variant-numeric:tabular-nums}.credit-explain{font-size:12px;color:#56675a;line-height:1.8}.credit-bar{width:100%;height:13px;accent-color:#45775f;margin:12px 0}.credit-alert{margin:12px 0;padding:12px 14px;border-radius:10px;border:1px solid #d0d6d1;background:#f5f8f6;color:#314c3b}.credit-alert.warning{border:1px solid #d99c48;background:#fff2db;color:#734213}.credit-input-row{display:flex;align-items:end;gap:9px;flex-wrap:wrap;margin:12px 0}.credit-input-row label{display:grid;gap:4px;font-weight:650;font-size:13px}.credit-input-row input{max-width:170px;padding:10px 11px;border-radius:8px;border:1px solid #bccbc0;font:inherit}.credit-input-row button{padding:10px 14px}</style></head>
 <body><header class="topbar"><div><p class="eyebrow">NYUNET / SAFETY</p><h1>AI実行の安全管理</h1><p class="sub">予算・件数・連続失敗・監査ログを確認します。</p></div><div class="top-actions"><a class="ghost back" href="./?brand=zen">編集デスクへ戻る</a></div></header>
-<main class="shell"><section class="panel safety-note"><strong id="api-indicator">OpenAI API 接続 OFF</strong><p>掲載処理は実行していません。金額は米ドル（USD）表示です。安全テスト用の仮の単価で計算しており、OpenAIの実際の請求額ではありません。停止解除や予算変更はこの画面からはできません。</p></section>
+<main class="shell"><section class="panel credit-panel" id="credit-panel">
+  <div class="credit-top"><div><h2 style="margin:0 0 5px">OpenAI API クレジット監視</h2><p class="small">ご申告の入金 $5.00 に対し、使用 $4.50（90%）で警告します。</p></div>
+    <div class="credit-links">
+      <a href="https://platform.openai.com/settings/organization/billing/overview" class="ghost" target="_blank" rel="noopener noreferrer">OpenAIの残高・支払いを確認</a>
+      <a href="https://platform.openai.com/usage" class="ghost" target="_blank" rel="noopener noreferrer">公式の使用量を見る</a>
+    </div>
+  </div>
+  <div class="credit-metrics">
+    <div class="credit-stat"><small>入金申告額（未照合）</small><strong id="credit-deposit">$5.00</strong></div>
+    <div class="credit-stat"><small>90% 警告ライン</small><strong id="credit-threshold">$4.50</strong></div>
+    <div class="credit-stat"><small>使用額の推計</small><strong id="credit-spent">未確認</strong></div>
+    <div class="credit-stat"><small>残高（公式入力・推計）</small><strong id="credit-remaining">未確認</strong></div>
+  </div>
+  <progress id="credit-progress" class="credit-bar" max="5" value="0" aria-label="記録済みの消費額と警告ライン"></progress>
+  <div id="credit-alert" role="alert" class="credit-alert">公式残高をまだ照合していません。過去の一部API利用は未記録です。</div>
+  <p id="credit-source" class="credit-explain"></p>
+  <form id="official-balance-form" class="credit-input-row">
+    <label>OpenAI公式画面に表示された残高（USD）
+      <input type="number" id="official-balance-input" min="0" max="5" step="0.000001" placeholder="例：4.95" required inputmode="decimal">
+    </label>
+    <button type="submit" class="ghost">確認した残高を記録</button>
+  </form>
+  <p class="credit-explain">公式残高は自動取得していません。この入力は OpenAI で確認した数値を管理者が転記するものです。入力後は新たなLuna使用分をトークンから推計して差し引きます。OpenAIの全プロジェクトで発生した費用や、記録開始前の利用分は自動追跡できません。支払い・入金履歴の確認と追加購入は上のOpenAI公式リンクから行ってください。</p>
+  <p class="credit-explain">Lunaトークン計測（機能追加後）：<strong id="luna-token-summary">集計中</strong>　・　モデル単価からの概算 <strong id="luna-token-cost">集計中</strong>（実請求額ではありません）</p>
+</section><section class="panel safety-note"><strong id="api-indicator">OpenAI API 接続 OFF</strong><p>掲載処理は実行していません。金額は米ドル（USD）表示です。安全テスト用の仮の単価で計算しており、OpenAIの実際の請求額ではありません。停止解除や予算変更はこの画面からはできません。</p></section>
 <section class="panel safety-header"><div><strong>設定・実行状況</strong><p id="last-update" class="small"></p></div><button class="ghost" id="reload" type="button">最新を取得</button></section><p id="message" role="status" class="status"></p>
 <div id="policy-list" class="safety-grid"></div>
 <section class="panel scroll"><h2>実行ログ <span id="run-count">0</span>件</h2><table class="safety-table"><thead><tr><th>日時（日本時間）</th><th>モード</th><th>状態</th><th>処理要求</th><th>仮の予約額（USD）</th><th>停止・拒否理由</th></tr></thead><tbody id="run-list"></tbody></table></section></main>
@@ -16,19 +40,19 @@ async function authReady(){
  if(!r.ok)return false;
  const v=await r.json();sess={access_token:v.access_token,refresh_token:v.refresh_token,expires_at:Date.now()+Math.max(0,(Number(v.expires_in||3600)-30)*1000),user:v.user};localStorage.setItem(sessionKey,JSON.stringify(sess));return true;
 }
-async function request(){
+async function request(fn='nyu_ai_safety_dashboard',payload={}){
  if(!await authReady())throw Error("編集デスクからログインしてください。");
- const r=await fetch(rest+"/rpc/nyu_ai_safety_dashboard",{method:"POST",headers:{apikey:cfg.publishableKey,Authorization:"Bearer "+sess.access_token,"Content-Type":"application/json"},body:"{}"});
+ const r=await fetch(rest+"/rpc/"+fn,{method:"POST",headers:{apikey:cfg.publishableKey,Authorization:"Bearer "+sess.access_token,"Content-Type":"application/json"},body:JSON.stringify(payload)});
  const d=await r.json().catch(()=>({}));
  if(!r.ok)throw Error(d.message||"管理者権限が必要です。");return d;
 }
 function fmt(d){return d?new Date(d).toLocaleString("ja-JP",{timeZone:"Asia/Tokyo"}):"-";}
 function usd(cents){const n=Number(cents);return Number.isFinite(n)?new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",minimumFractionDigits:2,maximumFractionDigits:2}).format(n/100):"-";}
-const scopeName=s=>s==="mock"?"承認済み候補（模擬）":"安全機能のテスト";
+const scopeName=s=>s==='live'?'Luna（本番API）':s==='mock'?'承認済み候補（模擬）':'安全機能のテスト';
 function render(data){
- select("#api-indicator").textContent=data.live_api_allowed?"設定を確認":"OpenAI API 接続 OFF";
+ select("#api-indicator").textContent=data.live_api_allowed?"LunaのAPI実行許可 ON":"LunaのAPI実行許可 OFF";
  select("#policy-list").innerHTML=data.policies.map(p=>`<article class="safety-card">
-<header><strong>${esc(scopeName(p.scope))}</strong><span class="${p.circuit_open?"stop":"running"}">${p.circuit_open?"停止中":"実行可能"}</span></header>
+<header><strong>${esc(scopeName(p.scope))}</strong><span class="${p.enabled&&p.api_enabled&&!p.circuit_open?"running":"stop"}">${p.enabled&&p.api_enabled&&!p.circuit_open?"実行許可":"停止中"}</span></header>
 <dl>
 <dt>1回上限</dt><dd>${esc(p.max_items_per_run)}件</dd>
 <dt>1日上限</dt><dd>${esc(p.max_items_per_day)}件</dd>
@@ -36,11 +60,59 @@ function render(data){
 <dt>月間想定予算（USD）</dt><dd>${esc(usd(p.max_estimated_cents_per_month))}</dd>
 <dt>模擬単価（USD）</dt><dd>${esc(usd(p.estimated_cents_per_item))}/件</dd>
 <dt>連続失敗</dt><dd>${esc(p.consecutive_failures)} / ${esc(p.max_consecutive_failures)}回</dd>
-</dl><p>${p.circuit_open?"停止原因："+esc(p.circuit_reason||"不明"):"API課金なしの模擬評価のみ許可"}</p>
+</dl><p>${p.circuit_open?"停止原因："+esc(p.circuit_reason||"不明"):(p.enabled&&p.api_enabled?"API実行許可（安全枠内）":"API実行無効／模擬評価のみ")}</p>
 </article>`).join("");
  select("#run-count").textContent=data.recent_runs.length;
  select("#run-list").innerHTML=data.recent_runs.length?data.recent_runs.map(r=>`<tr><td>${esc(fmt(r.started_at))}</td><td>${esc(scopeName(r.scope))}</td><td>${esc(r.status)}</td><td>${esc(r.requested_items)}件</td><td>${esc(usd(r.estimate_cents))}</td><td>${esc(r.error_code||"")}</td></tr>`).join(""):'<tr><td colspan="6">実行履歴はまだありません。</td></tr>';
  select("#last-update").textContent="最終取得 "+fmt(new Date().toISOString());
+}
+function usdAmount(x,places=2){const n=Number(x);return Number.isFinite(n)?'
+ select("#message").textContent="安全設定とログを取得中…";
+ try{const [d,credit]=await Promise.all([request(),request('nyu_api_credit_dashboard').catch(()=>null)]);render(d);renderCredit(credit);select("#message").textContent="最新の安全設定と履歴を表示しています。"; }
+ catch(e){select("#message").textContent="取得できません："+e.message;}
+}
+if(!cfg?.supabaseUrl||!cfg?.publishableKey){select("#message").textContent="接続設定がありません。";return;}
+try{sess=JSON.parse(localStorage.getItem(sessionKey)||localStorage.getItem("zennyu_admin_session_v1")||"null");}catch{sess=null;}
+select('#official-balance-form').addEventListener('submit',async e=>{
+ e.preventDefault();
+ const input=select('#official-balance-input'),amount=Number(input.value);
+ if(!input.value||!Number.isFinite(amount)||amount<0||amount>5){select('#message').textContent='残高は$0.00～$5.00で入力してください。';return;}
+ if(!window.confirm('OpenAI公式の請求画面で確認した残高 '+usdAmount(amount,4)+' を記録しますか？')){
+   return;
+ }
+ try{
+   await request('nyu_set_openai_official_balance',{p_balance_usd:amount,p_note:'OpenAI API billing overview manual balance'});
+   input.value='';
+   await load();
+   select('#message').textContent='確認した公式残高を記録しました。';
+ }catch(err){select('#message').textContent='残高を記録できません：'+err.message;}
+});
+select("#reload").addEventListener("click",load);load();
+})();</script></body></html>+n.toFixed(places):'未確認';}
+function renderCredit(d){
+  if(!d){select('#credit-alert').textContent='クレジット監視情報を取得できません。OpenAI公式画面で残高を確認してください。';return;}
+  const usage=d.usage||{};
+  select('#credit-deposit').textContent=usdAmount(d.deposit_usd);
+  select('#credit-threshold').textContent=usdAmount(d.warning_at_usd);
+  select('#credit-spent').textContent=usdAmount(d.spend_for_alert_usd,4);
+  select('#credit-remaining').textContent=d.estimated_remaining_usd===null?'未確認':usdAmount(d.estimated_remaining_usd,4);
+  const spent=Number(d.spend_for_alert_usd)||0,deposited=Number(d.deposit_usd)||5;
+  const bar=select('#credit-progress');bar.max=deposited;bar.value=Math.max(0,Math.min(deposited,spent));
+  const banner=select('#credit-alert');
+  banner.classList.toggle('warning',!!d.alert_active);
+  if(d.alert_active){
+    banner.textContent='⚠️ 消費額が警告ラインの '+usdAmount(d.warning_at_usd)+' に到達、または超過しています。OpenAI公式の残高・支払い画面で確認してください。';
+    try{if(sessionStorage.getItem('nyu-openai-credit-alert-450')!=='shown'){sessionStorage.setItem('nyu-openai-credit-alert-450','shown');window.alert('OpenAI APIクレジット警告：$4.50以上の使用が記録・推計されています。公式の残高を確認してください。');}}catch{}
+  }else if(d.official_balance_usd_entered===null){
+    banner.textContent='公式残高は未確認です。$5の入金は利用者の申告値で、記録開始前や他システムの使用額は分かりません。誤って「残高十分」と判断しないでください。';
+  }else{
+    banner.textContent='公式残高の手入力値と、その後に記録したLuna消費量で監視中です。90%未満ですが、公式の請求額とは差が出る場合があります。';
+  }
+  select('#credit-source').textContent=d.official_balance_checked_at
+      ? '公式画面の残高を手動記録した日時：'+fmt(d.official_balance_checked_at)+'。残高の変化はLunaの記録からの推計で、最新のOpenAI公式値そのものではありません。'
+      :'OpenAI公式の残高未入力。今の利用額は新しいトークン記録からの推計に限られます。';
+  select('#luna-token-summary').textContent=Number(usage.requests||0).toLocaleString('ja-JP')+'回 / 入力 '+Number(usage.input_tokens||0).toLocaleString('ja-JP')+' / 出力 '+Number(usage.output_tokens||0).toLocaleString('ja-JP')+' トークン';
+  select('#luna-token-cost').textContent=usdAmount(usage.estimated_usd||0,6);
 }
 async function load(){
  select("#message").textContent="安全設定とログを取得中…";
