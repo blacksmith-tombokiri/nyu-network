@@ -66,29 +66,7 @@ function render(data){
  select("#run-list").innerHTML=data.recent_runs.length?data.recent_runs.map(r=>`<tr><td>${esc(fmt(r.started_at))}</td><td>${esc(scopeName(r.scope))}</td><td>${esc(r.status)}</td><td>${esc(r.requested_items)}件</td><td>${esc(usd(r.estimate_cents))}</td><td>${esc(r.error_code||"")}</td></tr>`).join(""):'<tr><td colspan="6">実行履歴はまだありません。</td></tr>';
  select("#last-update").textContent="最終取得 "+fmt(new Date().toISOString());
 }
-function usdAmount(x,places=2){const n=Number(x);return Number.isFinite(n)?'
- select("#message").textContent="安全設定とログを取得中…";
- try{const [d,credit]=await Promise.all([request(),request('nyu_api_credit_dashboard').catch(()=>null)]);render(d);renderCredit(credit);select("#message").textContent="最新の安全設定と履歴を表示しています。"; }
- catch(e){select("#message").textContent="取得できません："+e.message;}
-}
-if(!cfg?.supabaseUrl||!cfg?.publishableKey){select("#message").textContent="接続設定がありません。";return;}
-try{sess=JSON.parse(localStorage.getItem(sessionKey)||localStorage.getItem("zennyu_admin_session_v1")||"null");}catch{sess=null;}
-select('#official-balance-form').addEventListener('submit',async e=>{
- e.preventDefault();
- const input=select('#official-balance-input'),amount=Number(input.value);
- if(!input.value||!Number.isFinite(amount)||amount<0||amount>5){select('#message').textContent='残高は$0.00～$5.00で入力してください。';return;}
- if(!window.confirm('OpenAI公式の請求画面で確認した残高 '+usdAmount(amount,4)+' を記録しますか？')){
-   return;
- }
- try{
-   await request('nyu_set_openai_official_balance',{p_balance_usd:amount,p_note:'OpenAI API billing overview manual balance'});
-   input.value='';
-   await load();
-   select('#message').textContent='確認した公式残高を記録しました。';
- }catch(err){select('#message').textContent='残高を記録できません：'+err.message;}
-});
-select("#reload").addEventListener("click",load);load();
-})();</script></body></html>+n.toFixed(places):'未確認';}
+function usdAmount(x,places=2){const n=Number(x);return Number.isFinite(n)?'$'+n.toFixed(places):'未確認';}
 function renderCredit(d){
   if(!d){select('#credit-alert').textContent='クレジット監視情報を取得できません。OpenAI公式画面で残高を確認してください。';return;}
   const usage=d.usage||{};
@@ -116,10 +94,22 @@ function renderCredit(d){
 }
 async function load(){
  select("#message").textContent="安全設定とログを取得中…";
- try{const d=await request();render(d);select("#message").textContent="最新の安全設定と履歴を表示しています。"; }
+ try{const [d,credit]=await Promise.all([request(),request('nyu_api_credit_dashboard').catch(()=>null)]);render(d);renderCredit(credit);select("#message").textContent="最新の安全設定と履歴を表示しています。"; }
  catch(e){select("#message").textContent="取得できません："+e.message;}
 }
 if(!cfg?.supabaseUrl||!cfg?.publishableKey){select("#message").textContent="接続設定がありません。";return;}
 try{sess=JSON.parse(localStorage.getItem(sessionKey)||localStorage.getItem("zennyu_admin_session_v1")||"null");}catch{sess=null;}
+select('#official-balance-form').addEventListener('submit',async e=>{
+ e.preventDefault();
+ const input=select('#official-balance-input'),amount=Number(input.value);
+ if(!input.value||!Number.isFinite(amount)||amount<0||amount>5){select('#message').textContent='残高は$0.00～$5.00で入力してください。';return;}
+ if(!window.confirm('OpenAI公式の請求画面で確認した残高 '+usdAmount(amount,4)+' を記録しますか？'))return;
+ try{
+   await request('nyu_set_openai_official_balance',{p_balance_usd:amount,p_note:'OpenAI API billing overview manual balance'});
+   input.value='';
+   await load();
+   select('#message').textContent='確認した公式残高を記録しました。';
+ }catch(err){select('#message').textContent='残高を記録できません：'+err.message;}
+});
 select("#reload").addEventListener("click",load);load();
 })();</script></body></html>
