@@ -38,6 +38,7 @@ textarea{width:100%;min-height:64px;resize:vertical}details{margin:15px 0}summar
 <nav class="nav"><button id="prev" type="button">前の問題</button><strong id="counter"></strong><button id="next" type="button">次の問題</button></nav>
 <div id="panel"></div>
 <nav class="nav"><button id="prev2" type="button">前の問題</button><button id="next2" type="button">次の問題</button></nav>
+<div id="study-summary" class="card" hidden></div>
 </div></main>
 <script src="../zennyu/config.js?v=20261031-3"></script>
 <script>
@@ -68,6 +69,36 @@ const checked=groups.filter(g=>isComplete(byTrial(facts,g.id),g.codes)).length;
 $('#progress-label').textContent='文章評価 '+done+'/25件 ／ 根拠確認 '+checked+'/25件';
 $('#progress-count').textContent=(done+checked)+'/50工程';$('#progress').max=50;$('#progress').value=done+checked;
 }
+let reportRequested=false;
+async function showStudySummary(){
+ if(reportRequested||!groups.length||!groups.every(g=>isComplete(byTrial(style,g.id),g.codes)&&isComplete(byTrial(facts,g.id),g.codes)))return;
+ reportRequested=true;
+ const target=$('#study-summary');target.hidden=false;target.textContent='集計中…';
+ try{
+  const mapping=await api('nyu_blind_review_reveal?select=trial_id,option_code,variant_key&limit=100');
+  if(mapping.length!==63)throw new Error('回答件数と対応表が一致しません');
+  const label={template:'AIなし定型文版',gpt:'GPT編集版',existing:'既存記事'};
+  const stats={template:{shown:0,wins:0,readability:0,clarity:0,zen_fit:0,fact_sum:0,fact_assessed:0,corrections:0},
+   gpt:{shown:0,wins:0,readability:0,clarity:0,zen_fit:0,fact_sum:0,fact_assessed:0,corrections:0},
+   existing:{shown:0,wins:0,readability:0,clarity:0,zen_fit:0,fact_sum:0,fact_assessed:0,corrections:0}};
+  for(const x of mapping){
+   const st=style.find(z=>z.trial_id===x.trial_id&&z.option_code===x.option_code);
+   const fa=facts.find(z=>z.trial_id===x.trial_id&&z.option_code===x.option_code);
+   if(!st||!fa)throw new Error('回答が一部不足しています');
+   const s=stats[x.variant_key];if(!s)throw new Error('未知の作成方法');
+   s.shown++;s.wins+=st.is_preferred?1:0;
+   s.readability+=st.readability;s.clarity+=st.clarity;s.zen_fit+=st.zen_fit;
+   s.corrections+=fa.requires_correction?1:0;
+   if(fa.source_alignment>0){s.fact_sum+=fa.source_alignment;s.fact_assessed++}
+  }
+  const avg=(n,d)=>d?(n/d).toFixed(2):'未評価';
+  target.innerHTML='<h2>全25件のブラインド比較集計</h2><p class="muted">結果は1人の編集評価です。文章の正確性の実証や統計的優越を示すものではありません。3択は13問、2択は12問です。</p>'
+   +Object.entries(stats).map(([key,s])=>'<section class="option" style="margin:10px 0"><strong>'+label[key]+'</strong><p>最優秀 '+s.wins+' / '+s.shown+'件（選出率 '+avg(100*s.wins,s.shown)+'％）</p>'
+   +'<p>読みやすさ '+avg(s.readability,s.shown)+' ｜ 明瞭さ '+avg(s.clarity,s.shown)+' ｜ 善兆らしさ '+avg(s.zen_fit,s.shown)+' / 5</p>'
+   +'<p>根拠との整合性 '+avg(s.fact_sum,s.fact_assessed)+' / 5（確認できた '+s.fact_assessed+'件）｜要修正 '+s.corrections+'件</p></section>').join('')
+   +'<p class="muted">各案の評価は作成元のラベルで比較しています。A/B/Cの場所による単純な有利不利を避けるため、案の順番は問題ごとに変更されています。</p>';
+ }catch(e){target.textContent='集計できません：'+e.message;reportRequested=false}
+}
 function navigation(){const info=groups[current];$('#counter').textContent='第'+(current+1)+'問 / '+groups.length+'問';
 for(const id of ['#prev','#prev2'])$(id).disabled=current===0;
 for(const id of ['#next','#next2'])$(id).disabled=current===groups.length-1;
@@ -77,7 +108,7 @@ return '<select data-dimension="'+name+'" data-option="'+code+'">'+(zero?'<optio
 }
 function render(){
 const g=groups[current],sr=byTrial(style,g.id),fr=byTrial(facts,g.id);
-navigation();metrics();
+navigation();metrics();void showStudySummary();
 const complete=isComplete(sr,g.codes),factComplete=isComplete(fr,g.codes);
 let out='<div class="card"><div class="row between"><div><span class="pill">'+(g.codes.length===3?'3択':'2択')+'</span><span class="pill">'+(complete?'文章評価済み':'文章評価前')+'</span></div><strong>第'+(current+1)+'問</strong></div>';
 if(!complete)out+='<p class="muted">作成方法・ニュースの出典は伏せています。文章の品質だけで評価してください。出典を確認できない段階の「正確性」は採点しません。</p>';
