@@ -284,9 +284,9 @@
       <div><b>なぜ善兆なのか（編集可能）</b><textarea data-luna-field="zencho_reason" rows="4" style="width:100%;box-sizing:border-box;font:inherit">${esc(item.zencho_reason||'')}</textarea></div>
       <div><b>原稿チェックと編集状態</b>${esc(item.quality_status||'未検査')} / ${esc(item.editorial_status||'未審査')}<br><span class="small">機械検証の通過は最終事実確認ではありません。原稿修正後は再検証が必要です。</span></div>
       <div><b>自動事実・権利照合</b><br>${item.fact_rights_audit?('事実：'+esc(item.fact_rights_audit.factual_status)+' / 権利：'+esc(item.fact_rights_audit.rights_status)+' / 総合：'+esc(item.fact_rights_audit.overall_status)):'未実施'}<br><span class="small">引用・数字・登録済み利用条件の機械照合です。独立した事実の裏付けや法的保証ではありません。</span>${item.fact_rights_audit?.attribution_text?'<details><summary>自動生成された出典表記</summary><p>'+esc(item.fact_rights_audit.attribution_text)+'</p></details>':''}${item.fact_rights_audit?.checks?'<details><summary>確認項目と保留理由</summary><pre style="white-space:pre-wrap">'+esc(JSON.stringify(item.fact_rights_audit.checks,null,2))+'</pre></details>':''}</div>
-      <div><b>確認用メモ</b><textarea data-luna-field="review_note" rows="2" style="width:100%;box-sizing:border-box;font:inherit" placeholder="承認・差し戻しの理由を記入">${esc(item.review_note||'')}</textarea></div>
+      <div><b>確認用メモ</b><textarea data-luna-field="review_note" rows="2" style="width:100%;box-sizing:border-box;font:inherit" placeholder="承認・差し戻しの理由を6文字以上で記入（必須）">${esc(item.review_note||'')}</textarea></div>
       <div><b>根拠引用</b><details><summary>${Array.isArray(item.evidence_claims)?item.evidence_claims.length:0}件の引用を確認</summary>${(Array.isArray(item.evidence_claims)?item.evidence_claims:[]).map(c=>`<p><strong>${esc(c.claim)}</strong><br><span class="small">出典：「${esc(c.quote)}」</span></p>`).join('')}</details></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="ghost" type="button" data-action="luna-save">原稿を保存</button><button class="ghost" type="button" data-action="luna-recheck">根拠を再検証</button><button class="primary" type="button" data-action="luna-approve" ${item.quality_status!=='structural_pass'?'disabled title="再検証を通過してください"':''}>編集承認</button><button class="ghost" type="button" data-action="luna-reject">差し戻す</button><button class="ghost" type="button" data-action="luna-reopen">確認待ちに戻す</button></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="ghost" type="button" data-action="luna-save">原稿を保存</button><button class="ghost" type="button" data-action="luna-recheck">根拠を再検証</button><button class="primary" type="button" data-action="luna-approve" ${item.quality_status!=='structural_pass'?'disabled title="再検証を通過してください"':''}>編集承認（非公開）</button><button class="ghost" type="button" data-action="luna-reject">差し戻す</button><button class="ghost" type="button" data-action="luna-reopen">確認待ちに戻す</button></div>
       <p class="small" style="margin-top:8px">※Luna記事の一般公開は無効です。編集承認とサイト公開は別操作です。</p>
       ` : '';
     return `<article class="review-row ${featured ? 'is-featured' : ''}" data-key="${esc(item.item_key)}" data-article-id="${esc(item.article_id || '')}" data-evaluation-id="${esc(item.evaluation_id || '')}" data-luna-draft-id="${esc(item.luna_draft_id || '')}">
@@ -471,6 +471,9 @@
           const kind=actions[action];
           if (!kind) throw new Error('未対応操作');
           const note=get('review_note').trim();
+          if ((kind==='approve'||kind==='reject') && note.length<6) {
+            throw new Error('確認用メモに6文字以上で承認・差し戻しの理由を記入してください。');
+          }
           if (kind==='approve' && !confirm('原文・数値・権利・表現を確認し、編集承認しますか？（サイトには公開されません）')) {
             btn.disabled=false;btn.textContent=oldText;return;
           }
