@@ -378,7 +378,7 @@
     ]);
     await loadFeatured();
     const codes={good:'善',forward:'前',nature:'然',repair:'繕',mind:'禅',food:'膳'};
-    const lunaItems=(lunaRows||[]).filter(x=>x.draft_id && x.editorial_status!=='rejected_by_editor').map(x=>({
+    const lunaItems=(lunaRows||[]).filter(x=>x.draft_id).map(x=>({
       item_key:'luna:'+x.draft_id,luna_draft_id:x.draft_id,
       article_id:null,evaluation_id:null,source_item_id:x.source_item_id,
       score_total:x.score_total,score_common:x.score_common,score_category:x.score_category,
