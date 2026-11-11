@@ -49,6 +49,11 @@
       window.open(target, '_blank', 'noopener,noreferrer');
       return;
     }
+    if (action === 'facebook') {
+      const target = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(url);
+      window.open(target, '_blank', 'noopener,noreferrer');
+      return;
+    }
     if (action === 'line') {
       const target = 'https://social-plugins.line.me/lineit/share?url=' +
         encodeURIComponent(url) + '&text=' + encodeURIComponent(title);
