@@ -261,6 +261,7 @@
       try{const url=new URL(rawUrl);if(url.protocol==='https:')official='<a href="'+esc(url.href)+'" target="_blank" rel="noopener noreferrer">公式発表を確認</a>';}catch{}
       return '<article class="review-row oneclick-ready-item" data-luna-draft-id="'+esc(item.luna_draft_id)+'">'+
         '<div class="oneclick-ready-head"><strong>'+esc(title)+'</strong><span class="oneclick-score">'+esc(item.score_total)+'点</span></div>'+
+        '<details class="oneclick-preview"><summary>原稿本文と善兆コメントを確認</summary><p class="oneclick-preview-body">'+esc(item.article_body||'')+'</p><p><strong>善兆コメント：</strong>'+esc(item.zencho_comment||'')+'</p><p class="small">'+esc(item.zencho_reason||'')+'</p></details>'+
         '<p class="small">一次情報・権利・引用・文章構造の自動照合済み。ボタンを押すとそのまま一般公開します。</p>'+
         '<div class="oneclick-ready-actions">'+official+'<button class="primary" type="button" data-action="luna-oneclick">確認して公開</button></div></article>';
     }).join(''):'<p class="small">現在、全チェックを通過した80点以上の記事はありません。その他の原稿は下の編集一覧で確認できます。</p>';
@@ -473,6 +474,7 @@
   }
 
   async function handleAction(btn) {
+    let completionMessage='';
     const row = btn.closest('.review-row');
     const articleId = row?.dataset.articleId;
     const evaluationId = row?.dataset.evaluationId;
@@ -492,7 +494,7 @@
             p_note:'自動審査済みの原稿を編集長が確認し、ワンクリック公開を承認'
           }});
           if(!result?.published)throw new Error('公開の完了を確認できませんでした');
-          status.textContent='Luna記事を公開しました。';
+          completionMessage='Luna記事を公開しました。サイトで読める状態になっています。';
         } else if (action==='luna-recheck') {
           const res=await apiLunaRecheck(draftId);
           if (!res.ok) throw new Error(res.error||'検証できませんでした');
@@ -539,6 +541,7 @@
         status.textContent = '固定を解除しました。自動選出へ戻りました。';
       }
       await loadQueue();
+      if(completionMessage)status.textContent=completionMessage;
     } catch (err) {
       status.textContent = `更新できませんでした：${err.message}`;
       btn.disabled = false;
