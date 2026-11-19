@@ -46,6 +46,8 @@
   const logoutBtn = $('#logout-btn');
   const listRoot = $('#review-list');
   const status = $('#status');
+  const oneClickPanel = $('#oneclick-ready-panel');
+  const oneClickList = $('#oneclick-ready-list');
   const inboxNotification = $('#inbox-notification');
   const inboxBadge = $('#inbox-unread-badge');
   let inboxCheckInFlight = false;
@@ -232,6 +234,40 @@
   function isFeatured(item) { return Boolean(currentFeatured?.id && item.article_id === currentFeatured.id); }
   function isReviewBand(item) { const n=Number(item.score_total); return Number.isFinite(n) && n >= 70 && n <= 79; }
 
+  function readyForOneClick(item) {
+    if (activeBrand!=='zen'||!item.luna_draft_id||item.article_id||
+        Number(item.score_total)<80||item.editorial_status!=='pending_review'||
+        item.quality_status!=='structural_pass'||item.safety_checks?.passed!==true||
+        item.safety_checks?.human_modified||item.safety_checks?.recheck_required) return false;
+    const publishedTime=new Date(item.source_published_at||'').getTime();
+    if(!Number.isFinite(publishedTime)||publishedTime>Date.now()||
+       publishedTime<Date.now()-48*3600000)return false;
+    const a=item.fact_rights_audit;
+    if(a?.overall_status!=='ready'||a.factual_status!=='pass'||a.rights_status!=='pass')return false;
+    const checked=new Date(a.checked_at||'').getTime();
+    if(!Number.isFinite(checked)||checked<Date.now()-24*3600000)return false;
+    if((a.checks?.fact?.issues||[]).length||(a.checks?.rights?.issues||[]).length)return false;
+    return true;
+  }
+  function renderOneClickReady(){
+    if(!oneClickPanel||!oneClickList)return;
+    oneClickPanel.hidden=activeBrand!=='zen';
+    if(activeBrand!=='zen')return;
+    const ready=items.filter(readyForOneClick);
+    const label=$('#oneclick-ready-count');if(label)label.textContent=String(ready.length);
+    oneClickList.innerHTML=ready.length?ready.map(item=>{
+      const title=item.headline||item.suggested_title||'記事',rawUrl=String(item.source_url||'');
+      let official='';
+      try{const url=new URL(rawUrl);if(url.protocol==='https:')official='<a href="'+esc(url.href)+'" target="_blank" rel="noopener noreferrer">公式発表を確認</a>';}catch{}
+      return '<article class="review-row oneclick-ready-item" data-luna-draft-id="'+esc(item.luna_draft_id)+'">'+
+        '<div class="oneclick-ready-head"><strong>'+esc(title)+'</strong><span class="oneclick-score">'+esc(item.score_total)+'点</span></div>'+
+        '<p class="small">一次情報・権利・引用・文章構造の自動照合済み。ボタンを押すとそのまま一般公開します。</p>'+
+        '<div class="oneclick-ready-actions">'+official+'<button class="primary" type="button" data-action="luna-oneclick">確認して公開</button></div></article>';
+    }).join(''):'<p class="small">現在、全チェックを通過した80点以上の記事はありません。その他の原稿は下の編集一覧で確認できます。</p>';
+    oneClickList.querySelectorAll('[data-action]').forEach(btn=>btn.addEventListener('click',()=>handleAction(btn)));
+  }
+
+
   // Review-only items and unpublished 70-79 items have a 14-day editorial shelf life.
   // Published articles and 80+ scores are not subject to this queue retention rule.
   function retainedForEditorial(item) {
@@ -279,15 +315,11 @@
     const pinAction = published && item.article_id
       ? `<button class="pin-btn ${pinned ? 'active' : ''}" type="button" data-action="${pinned ? 'unpin' : 'pin'}">${pinned ? '固定解除' : 'トップに固定'}</button>` : '';
 
-    const sourceTime=new Date(item.source_published_at||'').getTime();
-    const isFresh=Number.isFinite(sourceTime) && sourceTime<=Date.now() && sourceTime>=Date.now()-48*3600000;
-    const factRightsPassed=item.fact_rights_audit?.overall_status==='ready' && item.fact_rights_audit?.factual_status==='pass' && item.fact_rights_audit?.rights_status==='pass';
-    const canManualPublish=!!item.luna_draft_id && !item.article_id && item.editorial_status==='approved_by_editor' &&
-        item.quality_status==='structural_pass' && isFresh && factRightsPassed;
-    const publishBlockReason=!isFresh?'元ニュースの公開から48時間以上経過しています'
-      :item.editorial_status!=='approved_by_editor'?'先に編集承認してください'
-      :!factRightsPassed?'事実・権利の照合が完了していません'
-      :'公開前の条件を満たしていません';
+    const canOneClick=readyForOneClick(item);
+    const publishBlockReason=!item.luna_draft_id?'原稿生成待ち'
+      :item.quality_status!=='structural_pass'?'引用・文章の自動確認が必要'
+      :item.fact_rights_audit?.overall_status!=='ready'?'根拠・権利の自動確認が必要'
+      :'公開期限やその他の公開条件を満たしていません';
     const lunaExtras = item.luna_draft_id ? `
       <div><b>記事本文（編集可能）</b><textarea data-luna-field="article_body" rows="8" style="width:100%;box-sizing:border-box;font:inherit">${esc(item.article_body||'')}</textarea></div>
       <div><b>タイトル（編集可能）</b><textarea data-luna-field="headline" rows="2" style="width:100%;box-sizing:border-box;font:inherit">${esc(item.headline||'')}</textarea></div>
@@ -297,8 +329,8 @@
       <div><b>自動事実・権利照合</b><br>${item.fact_rights_audit?('事実：'+esc(item.fact_rights_audit.factual_status)+' / 権利：'+esc(item.fact_rights_audit.rights_status)+' / 総合：'+esc(item.fact_rights_audit.overall_status)):'未実施'}<br><span class="small">引用・数字・登録済み利用条件の機械照合です。独立した事実の裏付けや法的保証ではありません。</span>${item.fact_rights_audit?.attribution_text?'<details><summary>自動生成された出典表記</summary><p>'+esc(item.fact_rights_audit.attribution_text)+'</p></details>':''}${item.fact_rights_audit?.checks?'<details><summary>確認項目と保留理由</summary><pre style="white-space:pre-wrap">'+esc(JSON.stringify(item.fact_rights_audit.checks,null,2))+'</pre></details>':''}</div>
       <div><b>確認用メモ</b><textarea data-luna-field="review_note" rows="2" style="width:100%;box-sizing:border-box;font:inherit" placeholder="承認・差し戻しの理由を6文字以上で記入（必須）">${esc(item.review_note||'')}</textarea></div>
       <div><b>根拠引用</b><details><summary>${Array.isArray(item.evidence_claims)?item.evidence_claims.length:0}件の引用を確認</summary>${(Array.isArray(item.evidence_claims)?item.evidence_claims:[]).map(c=>`<p><strong>${esc(c.claim)}</strong><br><span class="small">出典：「${esc(c.quote)}」</span></p>`).join('')}</details></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="ghost" type="button" data-action="luna-save" ${published?'disabled title="公開中の記事は原稿を直接変更できません"':''}>原稿を保存</button><button class="ghost" type="button" data-action="luna-recheck" ${published?'disabled':''}>根拠を再検証</button><button class="primary" type="button" data-action="luna-approve" ${item.quality_status!=='structural_pass'||published?'disabled title="再検証または非公開への変更が必要です"':''}>${item.editorial_status==='approved_by_editor'?'編集承認済み':'編集承認（非公開）'}</button><button class="primary" type="button" data-action="luna-publish" ${canManualPublish?'':'disabled title="'+esc(publishBlockReason)+'"'}>${published?'公開済み':'公開'}</button><button class="ghost" type="button" data-action="luna-reject" ${published?'disabled':''}>差し戻す</button><button class="ghost" type="button" data-action="luna-reopen" ${published?'disabled':''}>確認待ちに戻す</button></div>
-      <p class="small" style="margin-top:8px">※編集承認と公開は別操作です。公開前に元ニュースの48時間以内・根拠・権利を再確認します。</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="ghost" type="button" data-action="luna-save" ${published?'disabled title="公開中の記事は原稿を直接変更できません"':''}>原稿を保存</button><button class="ghost" type="button" data-action="luna-recheck" ${published?'disabled':''}>根拠を再検証</button><button class="primary" type="button" data-action="luna-oneclick" ${canOneClick?'':'disabled title="'+esc(publishBlockReason)+'"'}>${published?'公開済み':'確認して公開'}</button><button class="ghost" type="button" data-action="luna-reject" ${published?'disabled':''}>差し戻す</button><button class="ghost" type="button" data-action="luna-reopen" ${published?'disabled':''}>確認待ちに戻す</button></div>
+      <p class="small" style="margin-top:8px">※全自動チェック合格で「確認して公開」1回。公開時には鮮度・根拠・権利も再確認します。</p>
       ` : '';
     return `<article class="review-row ${featured ? 'is-featured' : ''}" data-key="${esc(item.item_key)}" data-article-id="${esc(item.article_id || '')}" data-evaluation-id="${esc(item.evaluation_id || '')}" data-luna-draft-id="${esc(item.luna_draft_id || '')}">
       <div class="score ${item.score_total == null ? 'na' : ''}">${item.score_total == null ? '－' : esc(item.score_total)}<small>${esc(scoreHint(item))}</small></div>
@@ -338,6 +370,7 @@
     $('#count-unpublished').textContent = all - pub;
     $('#count-review').textContent = items.filter(isReviewBand).length;
     renderFeaturedStatus();
+    renderOneClickReady();
 
     const shown = visibleItems();
     if (!shown.length) {
@@ -407,7 +440,7 @@
       headline:x.headline,article_body:x.article_body,
       zencho_comment:x.zencho_comment,zencho_reason:x.zencho_reason,
       evidence_claims:x.evidence_claims,quality_status:x.quality_status,
-      editorial_status:x.editorial_status,review_note:x.review_note,
+      editorial_status:x.editorial_status,safety_checks:x.safety_checks,review_note:x.review_note,
       fact_rights_audit:x.draft_id?(auditIndex.get(x.draft_id)||null):null
     }));
     // Luna drafts have their own immutable score ID; never map them to legacy evaluation IDs.
@@ -419,10 +452,10 @@
 
   async function apiLunaRecheck(draftId) {
     if (!session?.access_token) throw new Error('ログインし直してください。');
-    const r=await fetch(`${CFG.supabaseUrl}/functions/v1/nyu-luna-publication-draft`,{
+    const r=await fetch(`${CFG.supabaseUrl}/functions/v1/nyu-luna-oneclick-preflight`,{
       method:'POST',
       headers:{'Content-Type':'application/json',apikey:CFG.publishableKey,Authorization:`Bearer ${session.access_token}`},
-      body:JSON.stringify({mode:'recheck_saved',draft_id:draftId})
+      body:JSON.stringify({mode:'run',draft_id:draftId,limit:1})
     });
     const data=await r.json();
     if (!r.ok || !data.ok) throw new Error(data.error||'再検証に失敗しました');
@@ -452,15 +485,13 @@
       if (action.startsWith('luna-')) {
         const draftId=row?.dataset.lunaDraftId;
         if (!draftId) throw new Error('Luna原稿IDがありません');
-        if (action==='luna-publish') {
-          const preview=await api('rpc/nyu_publish_luna_draft',{method:'POST',body:{p_draft_id:draftId,p_confirm_publish:false}});
-          if(!preview?.ready)throw new Error('公開条件が整っていません。');
-          const date=new Date(preview.source_published_at).toLocaleString('ja-JP');
-          if(!confirm('【サイトへ一般公開】\\n\\n'+preview.title+'\\n善兆スコア：'+preview.score+'点\\n元ニュース公開：'+date+'\\n\\n本当に今すぐ公開しますか？ 編集承認とは異なり、読者が記事を閲覧できるようになります。')){
-            btn.disabled=false;btn.textContent=oldText;return;
-          }
-          const publishedResult=await api('rpc/nyu_publish_luna_draft',{method:'POST',body:{p_draft_id:draftId,p_confirm_publish:true}});
-          if(!publishedResult?.published)throw new Error('記事を公開できませんでした。');
+        if (action==='luna-oneclick') {
+          // One RPC executes authenticated approval, fresh audit and publication atomically.
+          const result=await api('rpc/nyu_manage_luna_editorial',{method:'POST',body:{
+            p_draft_id:draftId,p_action:'approve',
+            p_note:'自動審査済みの原稿を編集長が確認し、ワンクリック公開を承認'
+          }});
+          if(!result?.published)throw new Error('公開の完了を確認できませんでした');
           status.textContent='Luna記事を公開しました。';
         } else if (action==='luna-recheck') {
           const res=await apiLunaRecheck(draftId);
@@ -468,15 +499,12 @@
           status.textContent='原稿を再検証しました。';
         } else {
           const get=k=>row.querySelector('[data-luna-field="'+k+'"]')?.value||'';
-          const actions={'luna-save':'save','luna-approve':'approve','luna-reject':'reject','luna-reopen':'reopen'};
+          const actions={'luna-save':'save','luna-reject':'reject','luna-reopen':'reopen'};
           const kind=actions[action];
           if (!kind) throw new Error('未対応操作');
           const note=get('review_note').trim();
           if ((kind==='approve'||kind==='reject') && note.length<6) {
             throw new Error('確認用メモに6文字以上で承認・差し戻しの理由を記入してください。');
-          }
-          if (kind==='approve' && !confirm('原文・数値・権利・表現を確認し、編集承認しますか？（サイトには公開されません）')) {
-            btn.disabled=false;btn.textContent=oldText;return;
           }
           if (kind==='reject' && !confirm('このLuna原稿を差し戻しますか？')) {
             btn.disabled=false;btn.textContent=oldText;return;
@@ -488,7 +516,7 @@
             p_zencho_comment:kind==='save'?get('zencho_comment'):null,
             p_zencho_reason:kind==='save'?get('zencho_reason'):null
           }});
-          status.textContent=kind==='save'?'原稿を保存しました。再検証後に編集承認できます。':kind==='approve'?'編集承認しました（未公開）。':kind==='reject'?'差し戻しました。':'確認待ちに戻しました。';
+          status.textContent=kind==='save'?'原稿を保存しました。自動チェック合格後にワンクリック公開できます。':kind==='reject'?'差し戻しました。':'確認待ちに戻しました。';
         }
       } else if (action === 'publish-review') {
         await api('rpc/nyu_set_review_publication', { method:'POST', body:{ p_evaluation_id:evaluationId, p_publish:true } });
