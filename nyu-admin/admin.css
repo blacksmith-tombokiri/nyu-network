@@ -30,3 +30,73 @@
 .oneclick-preview { margin-top:10px;padding:10px 12px;border-radius:9px;background:rgba(128,128,128,.065); }
 .oneclick-preview summary { cursor:pointer;font-weight:600; }
 .oneclick-preview-body { white-space:pre-line;line-height:1.7; }
+
+
+/*
+ * The one-click card lives inside the editorial desk, but it is a single
+ * full-width card rather than the five-column legacy .review-row.
+ * This more-specific selector also wins over the legacy 900px media rule.
+ */
+.review-row.oneclick-ready-item {
+  display: block;
+  grid-template-columns: none;
+  width: 100%;
+  min-width: 0;
+  margin: 12px 0 0;
+  padding: 18px 20px;
+  overflow-wrap: anywhere;
+}
+.review-row.oneclick-ready-item > * {
+  min-width: 0;
+}
+.oneclick-ready-item .oneclick-ready-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  margin-bottom: 12px;
+}
+.oneclick-ready-item .oneclick-ready-head strong {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 16px;
+  line-height: 1.55;
+  overflow-wrap: break-word;
+}
+.oneclick-ready-item .oneclick-score {
+  flex: 0 0 auto;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.oneclick-ready-item .oneclick-preview {
+  display: block;
+  margin: 0 0 12px;
+  width: 100%;
+}
+.oneclick-ready-item > p.small {
+  margin: 10px 0;
+  line-height: 1.65;
+}
+.oneclick-ready-item .oneclick-ready-actions {
+  width: 100%;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 16px;
+  margin-top: 14px;
+}
+@media (max-width: 600px) {
+  .review-row.oneclick-ready-item { padding: 15px; }
+  .oneclick-ready-item .oneclick-ready-head { flex-wrap: wrap; gap: 7px; }
+  .oneclick-ready-item .oneclick-ready-head strong { flex-basis: 100%; }
+  .oneclick-ready-item .oneclick-ready-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .oneclick-ready-item .oneclick-ready-actions a { align-self: flex-start; }
+  .oneclick-ready-item .oneclick-ready-actions button { width: 100%; }
+}
