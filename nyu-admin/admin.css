@@ -5,3 +5,24 @@
 .inbox-notification.has-new{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
 .inbox-notification[hidden],.inbox-unread-badge[hidden]{display:none!important}
 .inbox-unread-badge{position:absolute;top:-7px;right:-9px;display:inline-flex;align-items:center;justify-content:center;min-width:19px;height:19px;padding:0 5px;border-radius:999px;background:#b93232;color:white;font-size:11px;font-weight:800;line-height:1;border:2px solid white}
+
+
+/* Luna one-click release desk: the actual publication action is server-side and admin-authenticated. */
+#oneclick-ready-panel[hidden] { display:none !important; }
+.oneclick-panel { margin:12px 0 20px; }
+.oneclick-title-row { display:flex;align-items:start;justify-content:space-between;gap:16px; }
+.oneclick-title-row h2 { margin:4px 0 6px;font-size:1.22rem; }
+.oneclick-count { display:inline-block;min-width:1.6em;text-align:center;margin-left:5px;padding:2px 8px;
+ border-radius:999px;background:var(--accent-soft,#e8f1ed);font-size:.85em; }
+.oneclick-ready-item { margin:12px 0 0;padding:15px 16px;border:1px solid #c9d9d0;border-radius:12px; }
+.oneclick-ready-head { display:flex;gap:12px;justify-content:space-between;align-items:start; }
+.oneclick-ready-head strong { line-height:1.55; }
+.oneclick-score { white-space:nowrap;font-weight:800;font-variant-numeric:tabular-nums; }
+.oneclick-ready-actions { display:flex;gap:12px;justify-content:flex-end;align-items:center;flex-wrap:wrap;margin-top:12px; }
+.oneclick-ready-actions a { font-size:.88rem; }
+.oneclick-ready-actions button { min-width:145px; }
+@media(max-width:700px) {
+ .oneclick-ready-head { align-items:start; }
+ .oneclick-ready-actions { justify-content:stretch; }
+ .oneclick-ready-actions button { flex:1; }
+}
