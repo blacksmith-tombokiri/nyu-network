@@ -234,9 +234,10 @@
   function isFeatured(item) { return Boolean(currentFeatured?.id && item.article_id === currentFeatured.id); }
   function isReviewBand(item) { const n=Number(item.score_total); return Number.isFinite(n) && n >= 70 && n <= 79; }
 
+  function editorialRelease(item) { return isReviewBand(item)&&item.safety_checks?.editorial_only===true; }
   function readyForOneClick(item) {
     if (activeBrand!=='zen'||!item.luna_draft_id||item.article_id||
-        Number(item.score_total)<80||item.editorial_status!=='pending_review'||
+        !(Number(item.score_total)>=80||editorialRelease(item))||item.editorial_status!=='pending_review'||
         item.quality_status!=='structural_pass'||item.safety_checks?.passed!==true||
         item.safety_checks?.human_modified||item.safety_checks?.recheck_required) return false;
     const publishedTime=new Date(item.source_published_at||'').getTime();
@@ -260,11 +261,11 @@
       let official='';
       try{const url=new URL(rawUrl);if(url.protocol==='https:')official='<a href="'+esc(url.href)+'" target="_blank" rel="noopener noreferrer">公式発表を確認</a>';}catch{}
       return '<article class="review-row oneclick-ready-item" data-luna-draft-id="'+esc(item.luna_draft_id)+'">'+
-        '<div class="oneclick-ready-head"><strong>'+esc(title)+'</strong><span class="oneclick-score">'+esc(item.score_total)+'点</span></div>'+
+        '<div class="oneclick-ready-head"><strong>'+esc(title)+'</strong><span class="oneclick-score">'+esc(item.score_total)+'点'+(editorialRelease(item)?'・編集長判断':'')+'</span></div>'+
         '<details class="oneclick-preview"><summary>原稿本文と善兆コメントを確認</summary><p class="oneclick-preview-body">'+esc(item.article_body||'')+'</p><p><strong>善兆コメント：</strong>'+esc(item.zencho_comment||'')+'</p><p class="small">'+esc(item.zencho_reason||'')+'</p></details>'+
         '<p class="small">一次情報・権利・引用・文章構造の自動照合済み。ボタンを押すとそのまま一般公開します。</p>'+
         '<div class="oneclick-ready-actions">'+official+'<button class="primary" type="button" data-action="luna-oneclick">確認して公開</button></div></article>';
-    }).join(''):'<p class="small">現在、全チェックを通過した80点以上の記事はありません。その他の原稿は下の編集一覧で確認できます。</p>';
+    }).join(''):'<p class="small">現在、全チェックを通過した公開候補はありません。その他の原稿は下の編集一覧で確認できます。</p>';
     oneClickList.querySelectorAll('[data-action]').forEach(btn=>btn.addEventListener('click',()=>handleAction(btn)));
   }
 
@@ -318,6 +319,7 @@
 
     const canOneClick=readyForOneClick(item);
     const publishBlockReason=!item.luna_draft_id?'原稿生成待ち'
+      :Number(item.score_total)<80&&!editorialRelease(item)?'編集長指定による原稿生成が必要'
       :item.quality_status!=='structural_pass'?'引用・文章の自動確認が必要'
       :item.fact_rights_audit?.overall_status!=='ready'?'根拠・権利の自動確認が必要'
       :'公開期限やその他の公開条件を満たしていません';
